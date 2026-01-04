@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\Wallet\ServiceRequestController;
 use App\Http\Controllers\Api\ServiceProc\ServiceProcController;
 use App\Http\Controllers\Api\Service\JambResult\JambResultController;
 use App\Http\Controllers\Api\Service\JambAdmissionLetter\JambAdmissionLetterController;
+use App\Http\Controllers\Api\Service\JambUploadStatus\JambUploadStatusController;
+use App\Http\Controllers\Api\Service\JambAdmissionStatus\JambAdmissionStatusController;
 
 /*
 |--------------------------------------------------------------------------
@@ -126,6 +128,110 @@ Route::middleware('auth:api')->group(function () {
 
         // View all jobs
         Route::get('/all', [JambAdmissionLetterController::class, 'all'])
+            ->middleware('role:superadmin');
+    });
+});
+
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::prefix('services/jamb-upload-status')->group(function () {
+
+        /**
+         * =================
+         * USER
+         * =================
+         */
+        // Submit request
+        Route::post('/', [JambUploadStatusController::class, 'store']);
+
+        // User's own requests
+        Route::get('/my', [JambUploadStatusController::class, 'my']);
+
+        /**
+         * =================
+         * ADMIN
+         * =================
+         */
+        // View pending jobs
+        Route::get('/pending', [JambUploadStatusController::class, 'pending'])
+            ->middleware('role:administrator');
+
+        // Take job
+        Route::post('/{id}/take', [JambUploadStatusController::class, 'take'])
+            ->middleware('role:administrator');
+
+        // Complete job (upload letter)
+        Route::post('/{id}/complete', [JambUploadStatusController::class, 'complete'])
+            ->middleware('role:administrator');
+
+        /**
+         * =================
+         * SUPER ADMIN
+         * =================
+         */
+        // Approve job
+        Route::post('/{id}/approve', [JambUploadStatusController::class, 'approve'])
+            ->middleware('role:superadmin');
+
+        // Reject job
+        Route::post('/{id}/reject', [JambUploadStatusController::class, 'reject'])
+            ->middleware('role:superadmin');
+
+        // View all jobs
+        Route::get('/all', [JambUploadStatusController::class, 'all'])
+            ->middleware('role:superadmin');
+    });
+});
+
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::prefix('services/jamb-admission-status')->group(function () {
+
+        /**
+         * =================
+         * USER
+         * =================
+         */
+        // Submit request
+        Route::post('/', [JambAdmissionStatusController::class, 'store']);
+
+        // User's own requests
+        Route::get('/my', [JambAdmissionStatusController::class, 'my']);
+
+        /**
+         * =================
+         * ADMIN
+         * =================
+         */
+        // View pending jobs
+        Route::get('/pending', [JambAdmissionStatusController::class, 'pending'])
+            ->middleware('role:administrator');
+
+        // Take job
+        Route::post('/{id}/take', [JambAdmissionStatusController::class, 'take'])
+            ->middleware('role:administrator');
+
+        // Complete job (upload letter)
+        Route::post('/{id}/complete', [JambAdmissionStatusController::class, 'complete'])
+            ->middleware('role:administrator');
+
+        /**
+         * =================
+         * SUPER ADMIN
+         * =================
+         */
+        // Approve job
+        Route::post('/{id}/approve', [JambAdmissionStatusController::class, 'approve'])
+            ->middleware('role:superadmin');
+
+        // Reject job
+        Route::post('/{id}/reject', [JambAdmissionStatusController::class, 'reject'])
+            ->middleware('role:superadmin');
+
+        // View all jobs
+        Route::get('/all', [JambAdmissionStatusController::class, 'all'])
             ->middleware('role:superadmin');
     });
 });
