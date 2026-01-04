@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Wallet\PaymentController;
 use App\Http\Controllers\Api\Wallet\ServiceRequestController;
 use App\Http\Controllers\Api\ServiceProc\ServiceProcController;
 use App\Http\Controllers\Api\Service\JambResult\JambResultController;
+use App\Http\Controllers\Api\Service\JambAdmissionLetter\JambAdmissionLetterController;
 
 /*
 |--------------------------------------------------------------------------
@@ -75,4 +76,56 @@ Route::middleware('auth:api')->group(function () {
             ->middleware('role:superadmin');
     });
 
+});
+
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::prefix('services/jamb-admission-letter')->group(function () {
+
+        /**
+         * =================
+         * USER
+         * =================
+         */
+        // Submit request
+        Route::post('/', [JambAdmissionLetterController::class, 'store']);
+
+        // User's own requests
+        Route::get('/my', [JambAdmissionLetterController::class, 'my']);
+
+        /**
+         * =================
+         * ADMIN
+         * =================
+         */
+        // View pending jobs
+        Route::get('/pending', [JambAdmissionLetterController::class, 'pending'])
+            ->middleware('role:administrator');
+
+        // Take job
+        Route::post('/{id}/take', [JambAdmissionLetterController::class, 'take'])
+            ->middleware('role:administrator');
+
+        // Complete job (upload letter)
+        Route::post('/{id}/complete', [JambAdmissionLetterController::class, 'complete'])
+            ->middleware('role:administrator');
+
+        /**
+         * =================
+         * SUPER ADMIN
+         * =================
+         */
+        // Approve job
+        Route::post('/{id}/approve', [JambAdmissionLetterController::class, 'approve'])
+            ->middleware('role:superadmin');
+
+        // Reject job
+        Route::post('/{id}/reject', [JambAdmissionLetterController::class, 'reject'])
+            ->middleware('role:superadmin');
+
+        // View all jobs
+        Route::get('/all', [JambAdmissionLetterController::class, 'all'])
+            ->middleware('role:superadmin');
+    });
 });

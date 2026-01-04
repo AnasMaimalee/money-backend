@@ -29,4 +29,10 @@ class Service extends Model
     {
         return $this->hasMany(ServiceRequest::class);
     }
+
+    public function platformProfit(): float
+    {
+        return $this->cusotmer_price - $this->admin_payout;
+    }
+
 }

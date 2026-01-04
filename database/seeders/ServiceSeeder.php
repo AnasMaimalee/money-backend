@@ -12,7 +12,7 @@ class ServiceSeeder extends Seeder
     {
         $services = [
             ['name' => 'Jamb Original Result', 'customer_price' => 5000, 'admin_payout' => 3000],
-            ['name' => 'Admission Letter', 'customer_price' => 4000, 'admin_payout' => 2500],
+            ['name' => 'Jamb Admission Letter', 'customer_price' => 4000, 'admin_payout' => 2500],
             ['name' => 'Checking Admission Status', 'customer_price' => 2000, 'admin_payout' => 1000],
             ['name' => 'JAMB Results Notifications', 'customer_price' => 1500, 'admin_payout' => 800],
             ['name' => 'JAMB Upload Status', 'customer_price' => 2500, 'admin_payout' => 1200],

@@ -21,7 +21,7 @@ class WalletDebited extends Mailable
 
     public function build()
     {
-        return $this->subject('Wallet Credited')
+        return $this->subject('Wallet Debited')
             ->view('emails.wallet.debited');
     }
 
