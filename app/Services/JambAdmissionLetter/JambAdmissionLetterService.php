@@ -107,45 +107,40 @@ class JambAdmissionLetterService
 
     public function complete(string $id, string $filePath, User $admin)
     {
-        
+        // Only Administrator can complete
+        if ($admin->role !== 'administrator') {
+            abort(403, 'Only Administrator can complete jobs');
+        }
+
         return DB::transaction(function () use ($id, $filePath, $admin) {
 
-            // 1️⃣ Find the job
             $job = $this->repo->find($id);
 
-            // 2️⃣ Make sure admin took this job
+            // Ensure the job is assigned to this admin
             if ($job->taken_by !== $admin->id) {
                 abort(403, 'You did not take this job');
             }
 
-            // 3️⃣ Check job status
+            // Only allow completing jobs that are in processing state
             if ($job->status !== 'processing') {
                 abort(422, 'Invalid job state');
             }
 
-            // 4️⃣ Update job: status, completed_by, result file
+            // Update the job as completed
             $job->update([
-                'status'       => 'completed', // mark as completed by admin
+                'status'       => 'completed_by_admin', // marks as completed by admin, awaiting approval
                 'result_file'  => $filePath,
-                'completed_by' => $admin->id, // <--- important
+                'completed_by' => $admin->id,
             ]);
 
-            // 5️⃣ Reload relations so we can use them
+            // Load relations for response
             $job->load(['user', 'service', 'completedBy']);
 
-            // 6️⃣ Pay admin AFTER the completed_by is set
-            $this->walletService->credit(
-                $job->completedBy,           // now this is a valid User instance
-                $job->admin_payout,
-                'JAMB Admission Letter service payment'
-            );
-
-            // 7️⃣ Notify user via email
-            Mail::to($job->email)->send(
+            // Send email notification to user
+            Mail::to($job->user->email)->send(
                 new JambAdmissionLetterCompletedMail($job)
             );
 
-            // 8️⃣ Return response
             return [
                 'message' => 'Job completed and awaiting approval',
                 'job' => [
@@ -156,8 +151,8 @@ class JambAdmissionLetterService
                         'email' => $job->user->email,
                     ],
                     'service' => $job->service->name,
-                    'completed_by' => $job->completedBy->name,
-                    'result_file_url' => asset('storage/' . $job->result_file),
+                    'completed_by' => $job->completedBy->name, // Administrator
+                    'result_file_url' => $job->result_file ? asset('storage/' . $job->result_file) : null,
                     'created_at' => $job->created_at,
                 ],
             ];
