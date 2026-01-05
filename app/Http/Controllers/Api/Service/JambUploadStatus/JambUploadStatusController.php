@@ -75,7 +75,7 @@ class JambUploadStatusController extends Controller
             }),
         ]);
     }
-    
+
     // User submits request
     public function store(Request $request)
     {

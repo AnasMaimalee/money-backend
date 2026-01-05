@@ -43,7 +43,6 @@ class JambAdmissionStatusController extends Controller
         ])
             ->where('completed_by', $admin->id)
             ->where('status', 'completed')
-            ->latest()
             ->get();
 
         return response()->json([

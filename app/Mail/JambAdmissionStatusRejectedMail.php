@@ -2,17 +2,17 @@
 
 namespace App\Mail;
 
+use App\Models\JambAdmissionStatusRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
-use App\Models\JambAdmissionLetterRequest;
 
 class JambAdmissionStatusRejectedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public function __construct(
-        public JambAdmissionLetterRequest $job
+        public JambAdmissionStatusRequest $job
     ) {}
 
     public function build()

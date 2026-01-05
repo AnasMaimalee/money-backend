@@ -21,7 +21,7 @@
 </ul>
 
 <p>
-    You can download your admission status using the link below:
+    You can download your admission letter using the link below:
 </p>
 
 <p>

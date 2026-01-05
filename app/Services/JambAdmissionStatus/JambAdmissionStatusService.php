@@ -2,7 +2,7 @@
 
 namespace App\Services\JambAdmissionStatus;
 
-use App\Mail\JambUploadStatusCompletedMail;
+use App\Mail\JambAdmissionStatusCompletedMail;
 use App\Models\User;
 use App\Models\Service;
 use Illuminate\Support\Facades\DB;
@@ -135,7 +135,7 @@ class JambAdmissionStatusService
 
             // Send email notification to user
             Mail::to($job->user->email)->send(
-                new JambUploadStatusCompletedMail($job)
+                new JambAdmissionStatusCompletedMail($job)
             );
 
             return [
