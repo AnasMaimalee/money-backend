@@ -16,6 +16,7 @@ class AdminServiceController extends Controller
             ->select([
                 'id',
                 'name',
+                'description',
                 'admin_payout',
                 'active',
             ])
@@ -24,6 +25,7 @@ class AdminServiceController extends Controller
             ->map(fn ($service) => [
                 'id'              => $service->id,
                 'name'            => $service->name,
+                'description'      => $service->description,
                 'admin_payout'    => (float) $service->admin_payout,
                 'active' => (bool) $service->active,
             ]);

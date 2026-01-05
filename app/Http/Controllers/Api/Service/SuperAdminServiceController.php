@@ -16,6 +16,7 @@ class SuperAdminServiceController extends Controller
             ->select([
                 'id',
                 'name',
+                'description',
                 'customer_price',
                 'admin_payout',
                 'active',
@@ -25,6 +26,7 @@ class SuperAdminServiceController extends Controller
             ->map(fn ($service) => [
                 'id'              => $service->id,
                 'name'            => $service->name,
+                'description'      => $service->description,
                 'customer_price'  => (float) $service->customer_price,
                 'admin_payout'    => (float) $service->admin_payout,
                 'platform_profit' => (float) (

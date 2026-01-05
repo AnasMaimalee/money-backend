@@ -17,6 +17,7 @@ class UserServiceController extends Controller
             ->select([
                 'id',
                 'name',
+                'description',
                 'customer_price',
             ])
             ->orderBy('name')
@@ -24,6 +25,7 @@ class UserServiceController extends Controller
             ->map(fn ($service) => [
                 'id'    => $service->id,
                 'name'  => $service->name,
+                'description'  => $service->description,
                 'price' => (float) $service->customer_price,
             ]);
 
