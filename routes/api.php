@@ -18,6 +18,9 @@ use App\Http\Controllers\Api\Payout\AdminPayoutController;
 use App\Http\Controllers\Api\Payout\PayoutTestController;
 use App\Http\Controllers\Api\Webhooks\PaystackWebhookController;
 use App\Http\Controllers\Api\Service\ServicePriceController;
+use App\Http\Controllers\Api\Service\SuperAdminServiceController;
+use App\Http\Controllers\Api\Service\AdminServiceController;
+use App\Http\Controllers\Api\Service\UserServiceController;
 
 
 /*
@@ -317,6 +320,21 @@ Route::middleware(['auth:api'])->group(function () {
 Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
     Route::get('/services/list', [ServicePriceController::class, 'list']);
     Route::put('/services/{serviceId}/update-prices', [ServicePriceController::class, 'update']);
+});
+
+Route::middleware(['auth:api'])->group(function () {
+
+    // 🔐 Admin / Superadmin
+    Route::middleware('role:superadmin')->group(function () {
+        Route::get('/superadmin/services', [SuperAdminServiceController::class, 'index']);
+    });
+
+    Route::middleware('role:administrator')->group(function () {
+        Route::get('/admin/services', [AdminServiceController::class, 'index']);
+    });
+
+    // 👤 User
+    Route::get('/services', [UserServiceController::class, 'index']);
 });
 
 
