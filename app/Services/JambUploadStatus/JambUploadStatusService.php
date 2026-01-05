@@ -41,13 +41,26 @@ class JambUploadStatusService
             abort(422, 'Insufficient wallet balance');
         }
 
-        return DB::transaction(function () use ($user, $data, $service) {
+        $superAdmin = User::role('superadmin')->first();
 
-            // 1️⃣ Debit user wallet
+        if (! $superAdmin) {
+            abort(500, 'Super admin not configured');
+        }
+
+        return DB::transaction(function () use ($user, $data, $service, $superAdmin) {
+
+            // 1️⃣ Debit USER wallet
             $this->walletService->debit(
                 $user,
                 $service->customer_price,
-                'JAMB Admission Letter request'
+                'JAMB Upload Status request'
+            );
+
+            // 2️⃣ Credit SUPER ADMIN wallet
+            $this->walletService->credit(
+                $superAdmin,
+                $service->customer_price,
+                'JAMB Upload Status payment received'
             );
 
             // 2️⃣ Create request
@@ -86,11 +99,17 @@ class JambUploadStatusService
 
     public function pending()
     {
+        if (! auth()->user()->hasRole('administrator')) {
+            abort(403, 'Unauthorized action');
+        }
         return $this->repo->pending();
     }
 
     public function take(string $id, User $admin)
     {
+        if (! auth()->user()->hasRole('administrator')) {
+            abort(403, 'Unauthorized action');
+        }
         $job = $this->repo->find($id);
 
         if ($job->status !== 'pending') {
@@ -107,8 +126,9 @@ class JambUploadStatusService
 
     public function complete(string $id, string $filePath, User $admin)
     {
-
-
+        if (! auth()->user()->hasRole('administrator')) {
+            abort(403, 'Unauthorized action');
+        }
         return DB::transaction(function () use ($id, $filePath, $admin) {
 
             $job = $this->repo->find($id);
@@ -166,6 +186,9 @@ class JambUploadStatusService
     public function approve(string $id, User $superAdmin)
     {
 
+        if (! auth()->user()->hasRole('superadmin')) {
+            abort(403, 'Unauthorized financial action');
+        }
 
         return DB::transaction(function () use ($id, $superAdmin) {
 
@@ -220,6 +243,10 @@ class JambUploadStatusService
 
     public function reject(string $id, string $reason, User $superAdmin)
     {
+        if (! auth()->user()->hasRole('superadmin')) {
+            abort(403, 'Unauthorized financial action');
+        }
+
         return DB::transaction(function () use ($id, $reason, $superAdmin) {
 
             $job = $this->repo->find($id);
@@ -252,6 +279,9 @@ class JambUploadStatusService
 
     public function all()
     {
+        if (! auth()->user()->hasRole('superadmin')) {
+            abort(403, 'Unauthorized action');
+        }
         return $this->repo->allWithRelations();
     }
 }

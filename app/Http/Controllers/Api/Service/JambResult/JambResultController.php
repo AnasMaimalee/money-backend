@@ -131,7 +131,7 @@ class JambResultController extends Controller
     {
         $request->validate([
             'file' => 'required|file|mimes:pdf,jpg,jpeg,png',
-            'price' => 'required|numeric|min:0',
+
         ]);
 
         $path = $request->file('file')->store('jamb-results', 'public');
