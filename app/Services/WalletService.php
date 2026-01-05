@@ -62,6 +62,7 @@ class WalletService
             $this->walletRepo->updateBalance($wallet, $after);
 
             $transaction = $this->walletRepo->createTransaction([
+                'user_id' => $user->id,
                 'wallet_id' => $wallet->id,
                 'type' => 'credit',
                 'amount' => $amount,
@@ -98,6 +99,7 @@ class WalletService
             $this->walletRepo->updateBalance($wallet, $after);
 
             $transaction = $this->walletRepo->createTransaction([
+                'user_id' => $user->id,
                 'wallet_id' => $wallet->id,
                 'type' => 'debit',
                 'amount' => $amount,

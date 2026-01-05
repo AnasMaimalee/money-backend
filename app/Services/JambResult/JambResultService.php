@@ -73,11 +73,6 @@ class JambResultService
                 'is_paid'            => true, // already paid
             ]);
 
-            // 3️⃣ Send email to user
-            Mail::to($request->email)->send(
-                new WalletDebited($user, $service->customer_price, $user->wallet->balance)
-            );
-
             return $request;
         });
     }

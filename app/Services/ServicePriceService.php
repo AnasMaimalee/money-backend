@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services;
 
 use App\Repositories\ServiceRepository;
@@ -6,30 +7,26 @@ use App\Models\Service;
 
 class ServicePriceService
 {
-    public function __construct(protected ServiceRepository $serviceRepo) {}
+    public function __construct(
+        protected ServiceRepository $serviceRepo
+    ) {}
 
-    public function listServices()
-    {
-        return $this->serviceRepo->all();
-    }
+    /**
+     * Update customer price and/or admin payout for a service
+     */
+    public function updatePrices(
+        string $serviceId,
+        ?float $customerPrice = null,
+        ?float $adminPayout = null
+    ): Service {
+        // 1️⃣ Find service
+        $service = $this->serviceRepo->find($serviceId);
 
-    public function createService(array $data): Service
-    {
-        return $this->serviceRepo->create($data);
-    }
-
-    public function getService(string $id): Service
-    {
-        return $this->serviceRepo->find($id);
-    }
-
-    public function updateService(Service $service, array $data): bool
-    {
-        return $this->serviceRepo->update($service, $data);
-    }
-
-    public function deleteService(Service $service): bool
-    {
-        return $this->serviceRepo->delete($service);
+        // 2️⃣ Delegate update logic
+        return $this->serviceRepo->updatePrices(
+            $service,
+            $customerPrice,
+            $adminPayout
+        );
     }
 }

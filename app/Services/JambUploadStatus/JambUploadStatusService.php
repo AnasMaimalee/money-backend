@@ -78,15 +78,6 @@ class JambUploadStatusService
                 'is_paid'             => false,
             ]);
 
-            // 3️⃣ Notify user of debit
-            Mail::to($request->email)->send(
-                new WalletDebited(
-                    $user,
-                    $service->customer_price,
-                    $user->wallet->balance
-                )
-            );
-
             return $request;
         });
     }

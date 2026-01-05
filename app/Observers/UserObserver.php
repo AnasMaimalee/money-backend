@@ -15,7 +15,6 @@ class UserObserver
     public function created(User $user)
     {
         Wallet::create([
-            'id' => Str::uuid(),
             'user_id' => $user->id,
             'balance' => 0
         ]);

@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'paystack.webhook' => \App\Http\Middleware\VerifyPaystackSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

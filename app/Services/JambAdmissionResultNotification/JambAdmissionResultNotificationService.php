@@ -78,13 +78,6 @@ class JambAdmissionResultNotificationService
             ]);
 
             // 3️⃣ Notify user of debit
-            Mail::to($request->email)->send(
-                new WalletDebited(
-                    $user,
-                    $service->customer_price,
-                    $user->wallet->balance
-                )
-            );
 
             return $request;
         });

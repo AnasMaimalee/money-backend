@@ -99,5 +99,7 @@ class User extends Authenticatable implements JWTSubject
         return $this->roles->first()?->name;
     }
 
-    
+
+
+
 }

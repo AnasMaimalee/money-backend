@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use App\Models\User;
 
 class WalletTransaction extends Model
 {
     use HasUuids;
 
     protected $fillable = [
+        'user_id',
         'wallet_id',
         'type',
         'amount',
@@ -29,4 +31,12 @@ class WalletTransaction extends Model
     {
         return $this->belongsTo(Wallet::class);
     }
+
+
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
 }

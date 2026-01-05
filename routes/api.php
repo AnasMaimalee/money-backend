@@ -14,6 +14,11 @@ use App\Http\Controllers\Api\Service\JambAdmissionResultNotification\JambAdmissi
 use App\Http\Controllers\Api\Dashboard\AdminDashboardController;
 use App\Http\Controllers\Api\Dashboard\UserDashboardController;
 use App\Http\Controllers\Api\Dashboard\SuperAdminDashboardController;
+use App\Http\Controllers\Api\Payout\AdminPayoutController;
+use App\Http\Controllers\Api\Payout\PayoutTestController;
+use App\Http\Controllers\Api\Webhooks\PaystackWebhookController;
+use App\Http\Controllers\Api\Service\ServicePriceController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -39,14 +44,6 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/verify', [PaymentController::class, 'verify']);
     });
 
-    // SERVICES CATALOG (CRUD)
-    Route::prefix('services')->group(function () {
-        Route::get('/', [ServiceProcController::class, 'index']);
-        Route::post('/', [ServiceProcController::class, 'store']);
-        Route::get('/{service}', [ServiceProcController::class, 'show']);
-        Route::put('/{service}', [ServiceProcController::class, 'update']);
-        Route::delete('/{service}', [ServiceProcController::class, 'destroy']);
-    });
 
     // GENERIC SERVICE REQUEST
     Route::post('/service/request', [ServiceRequestController::class, 'request']);
@@ -315,4 +312,30 @@ Route::middleware(['auth:api'])->group(function () {
     });
 
 });
+
+
+Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
+    Route::get('/services/list', [ServicePriceController::class, 'list']);
+    Route::put('/services/{serviceId}/update-prices', [ServicePriceController::class, 'update']);
+});
+
+
+Route::middleware('auth:api')->group(function () {
+
+    // 🧑‍💼 ADMIN
+    Route::post('/admin/payout/request', [AdminPayoutController::class, 'requestPayout']);
+
+    // 👑 SUPER ADMIN
+    Route::post('/superadmin/payout/{payout}/approve', [AdminPayoutController::class, 'approvePayout'])
+        ->middleware('role:superadmin');
+
+    // 🧪 TEST ROUTE (DEV ONLY)
+    Route::post('/test/payout/factory', [PayoutTestController::class, 'seed']);
+});
+
+
+
+Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])
+    ->middleware('paystack.webhook');
+
 
