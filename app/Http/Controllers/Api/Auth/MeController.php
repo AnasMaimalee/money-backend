@@ -71,7 +71,7 @@ class MeController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'phone' => 'required|string',
+            'phone' => 'required|string|unique:users,phone',
             'state' => 'required|string',
         ]);
 
@@ -87,12 +87,13 @@ class MeController extends Controller
 
         $user->assignRole('administrator');
 
-        // Send email notification
+        // Wallet is automatically created via model boot()
+
         Mail::to($user->email)->send(new AdminAccountCreated($user, $password));
 
         return response()->json([
-            'message' => 'Administrator created',
-            'user' => $this->formatUser($user)
+            'message' => 'Administrator created successfully',
+            'user' => $this->formatUser($user->load('wallet')), // optional: include wallet
         ]);
     }
 

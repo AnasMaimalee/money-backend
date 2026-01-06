@@ -9,29 +9,31 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 use Tymon\JWTAuth\Contracts\JWTSubject;
-use App\Models\Wallet;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
 
     protected $keyType = 'string';
     public $incrementing = false;
 
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
     protected static function booted()
     {
         static::creating(function ($user) {
-            $user->id = (string) Str::uuid();
+            if (empty($user->id)) {
+                $user->id = (string) Str::uuid();
+            }
         });
 
-        static::created(function ($user) {
-            $user->wallet()->create([
-                'balance' => 0,
-            ]);
-        });
     }
 
     /**
@@ -84,11 +86,6 @@ class User extends Authenticatable implements JWTSubject
         return [];
     }
 
-    public function wallet()
-    {
-        return $this->hasOne(Wallet::class);
-    }
-
     public function serviceRequests()
     {
         return $this->hasMany(ServiceRequest::class);
@@ -111,6 +108,9 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(PayoutRequest::class, 'admin_id');
     }
 
-
+    public function walletTransactions()
+    {
+        return $this->hasManyThrough(WalletTransaction::class, Wallet::class);
+    }
 
 }

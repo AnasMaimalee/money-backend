@@ -21,6 +21,8 @@ use App\Http\Controllers\Api\Service\SuperAdminServiceController;
 use App\Http\Controllers\Api\Service\AdminServiceController;
 use App\Http\Controllers\Api\Service\UserServiceController;
 use App\Http\Controllers\Api\Payout\BankAccountController;
+use App\Http\Controllers\Api\AdminManagementController;
+use App\Http\Controllers\Api\UserManagementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -54,6 +56,17 @@ Route::middleware('auth:api')->group(function () {
     */
     Route::get('/me', [MeController::class, 'me']);
     Route::post('/me/create-administrator', [MeController::class, 'createAdministrator']);
+
+/*
+ * Administrator Management Controller*
+ */
+    Route::middleware(['auth:api'])->middleware('role:superadmin')->group(function () {
+        Route::get('/administrator', [AdminManagementController::class, 'index']);
+        Route::delete('/administrator/{adminId}', [AdminManagementController::class, 'destroy']);
+        Route::post('/administrator/{id}/restore', [AdminManagementController::class, 'restore']);
+        Route::post('users/{userId}/debit', [UserManagementController::class, 'debitWallet']);
+        Route::get('users/{userId}/transactions', [UserManagementController::class, 'transactions']);
+    });
 
     /*
     |--------------------------------------------------------------------------
