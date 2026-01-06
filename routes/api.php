@@ -69,6 +69,20 @@ Route::middleware('auth:api')->group(function () {
     });
 
     /*
+     * User Management Controller
+    */
+
+
+    Route::middleware(['auth:api'])->prefix('users')->middleware('role:superadmin')->group(function () {
+        Route::get('/', [UserManagementController::class, 'index']);                    // List + search
+        Route::get('/{userId}', [UserManagementController::class, 'show']);             // View user
+        Route::post('/{userId}/fund', [UserManagementController::class, 'fundWallet']);
+        Route::post('/{userId}/debit', [UserManagementController::class, 'debitWallet']);
+        Route::get('/{userId}/transactions', [UserManagementController::class, 'transactions']);// Manual fund
+        Route::delete('/{userId}', [UserManagementController::class, 'destroy']);       // Soft delete
+        Route::post('/{id}/restore', [UserManagementController::class, 'restore']);     // Restore
+    });
+    /*
     |--------------------------------------------------------------------------
     | Wallet
     |--------------------------------------------------------------------------
