@@ -11,30 +11,36 @@ class ServiceRepository
         return Service::findOrFail($id);
     }
 
-    public function updatePrices(
+    public function update(
         Service $service,
         ?float $customerPrice = null,
-        ?float $adminPayout = null
+        ?float $adminPayout = null,
+        ?string $description = null
     ): Service {
         $data = [];
 
-        if (! is_null($customerPrice)) {
+        if (!is_null($customerPrice)) {
             $data['customer_price'] = $customerPrice;
         }
 
-        if (! is_null($adminPayout)) {
+        if (!is_null($adminPayout)) {
             $data['admin_payout'] = $adminPayout;
+        }
+
+        if (!is_null($description)) {
+            $data['description'] = $description;
         }
 
         if (empty($data)) {
             abort(422, 'Nothing to update');
         }
 
-        // Safety check
-        if (
-            isset($data['customer_price'], $data['admin_payout']) &&
-            $data['admin_payout'] > $data['customer_price']
-        ) {
+        // Get the values that will be used after update
+        $newCustomerPrice = $data['customer_price'] ?? $service->customer_price;
+        $newAdminPayout   = $data['admin_payout'] ?? $service->admin_payout;
+
+        // Enforce: admin_payout must never be greater than customer_price
+        if ($newAdminPayout > $newCustomerPrice) {
             abort(422, 'Admin payout cannot be greater than customer price');
         }
 

@@ -12,7 +12,7 @@ class ServicePriceService
     ) {}
 
     /**
-     * Update customer price and/or admin payout for a service
+     * Update customer price, admin payout and/or description for a service
      */
     public function updatePrices(
         string $serviceId,
@@ -23,12 +23,12 @@ class ServicePriceService
         // 1️⃣ Find service
         $service = $this->serviceRepo->find($serviceId);
 
-        // 2️⃣ Delegate update logic
-        return $this->serviceRepo->updatePrices(
+        // 2️⃣ Delegate update logic (fixed parameter order)
+        return $this->serviceRepo->update(
             $service,
-            $description,
             $customerPrice,
-            $adminPayout
+            $adminPayout,
+            $description
         );
     }
 }

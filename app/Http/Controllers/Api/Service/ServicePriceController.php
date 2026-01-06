@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\ServicePriceService;
 use App\Models\Service;
+
 class ServicePriceController extends Controller
 {
     public function __construct(
         protected ServicePriceService $servicePriceService
     ) {
     }
+
     public function list()
     {
         $admin = auth()->user();
@@ -19,6 +21,7 @@ class ServicePriceController extends Controller
         if (! $admin->hasRole('superadmin')) {
             abort(403, 'Unauthorized action.');
         }
+
         $services = Service::where('active', true)
             ->get(['id', 'name', 'description', 'customer_price', 'admin_payout']);
 
@@ -26,7 +29,7 @@ class ServicePriceController extends Controller
     }
 
     /**
-     * Update the prices of a service
+     * Update the prices and/or description of a service
      */
     public function update(Request $request, string $serviceId)
     {
@@ -41,35 +44,34 @@ class ServicePriceController extends Controller
                 'nullable',
                 'numeric',
                 'min:0',
-                'required_without:admin_payout',
+                'required_without_all:admin_payout,description',
             ],
             'admin_payout' => [
                 'nullable',
                 'numeric',
                 'min:0',
-                'required_without:customer_price',
+                'required_without_all:customer_price,description',
             ],
-            'description' => 'nullable|string|max:255|min:10',
+            'description' => [
+                'nullable',
+                'string',
+                'max:255',
+                'min:10',
+                'required_without_all:customer_price,admin_payout',
+            ],
         ]);
 
-        if (
-            isset($validated['customer_price'], $validated['admin_payout']) &&
-            $validated['admin_payout'] > $validated['customer_price'] &&
-            $validated['description']
-        ) {
-            abort(422, 'Admin payout cannot be greater than customer price');
-        }
+        // No need to manually check payout > price anymore — repository handles it safely
 
         $service = $this->servicePriceService->updatePrices(
             $serviceId,
             $validated['customer_price'] ?? null,
             $validated['admin_payout'] ?? null,
             $validated['description'] ?? null,
-
         );
 
         return response()->json([
-            'message' => 'Service prices updated successfully',
+            'message' => 'Service updated successfully',
             'service' => [
                 'id'             => $service->id,
                 'name'           => $service->name,
@@ -79,5 +81,4 @@ class ServicePriceController extends Controller
             ],
         ]);
     }
-
 }

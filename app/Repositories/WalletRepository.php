@@ -4,7 +4,6 @@ namespace App\Repositories;
 
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
-
 class WalletRepository
 {
     public function getByUserId(string $userId): Wallet
@@ -21,5 +20,10 @@ class WalletRepository
     {
         $wallet->update(['balance' => $amount]);
         return $wallet;
+    }
+
+    public function createPayoutTransaction(array $data): WalletTransaction
+    {
+        return WalletTransaction::create($data);
     }
 }
