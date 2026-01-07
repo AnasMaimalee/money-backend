@@ -72,6 +72,32 @@ class MeController extends Controller
         ]);
     }
 
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6|confirmed', // password_confirmation
+        ]);
+
+        $user = auth()->user();
+
+        // Verify current password
+        if (!\Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'Current password is incorrect'
+            ], 422);
+        }
+
+        // Update password
+        $user->password = bcrypt($request->new_password);
+        $user->save();
+
+        return response()->json([
+            'message' => 'Password updated successfully'
+        ]);
+    }
+
+
     // CREATE ADMINISTRATOR
     public function createAdministrator(Request $request)
     {

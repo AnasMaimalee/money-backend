@@ -24,6 +24,8 @@ use App\Http\Controllers\Api\Payout\BankAccountController;
 use App\Http\Controllers\Api\AdminManagementController;
 use App\Http\Controllers\Api\UserManagementController;
 use App\Http\Controllers\Api\Auth\LoginAuditController;
+use App\Http\Controllers\Api\Auth\PasswordResetController;
+use App\Http\Controllers\Api\Auth\EmailVerificationController;
 /*
 |--------------------------------------------------------------------------
 | Public Auth Routes
@@ -33,6 +35,18 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [MeController::class, 'register']);
     Route::post('/login', [MeController::class, 'login']);
 });
+
+// Password Reset
+Route::post('forgot-password', [PasswordResetController::class, 'forgot']);
+Route::post('reset-password', [PasswordResetController::class, 'reset']);
+Route::middleware('auth:api')->post('/update-password', [MeController::class, 'updatePassword']);
+
+// Email Verification
+Route::get('verify-email/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+    ->name('verification.verify');
+Route::post('email/verification-notification', [EmailVerificationController::class, 'resend'])
+    ->middleware('auth:api')
+    ->name('verification.send');
 
 
 Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
