@@ -25,7 +25,7 @@ class PaymentController extends Controller
         $user = auth()->user();
         $reference = (string) Str::uuid();
 
-        $response = Http::withToken(config('services.paystack.secret'))
+        $response = Http::withToken(config('services.paystack.secret_key'))
             ->post('https://api.paystack.co/transaction/initialize', [
                 'email' => $user->email,
                 'amount' => $request->amount * 100,
@@ -53,7 +53,7 @@ class PaymentController extends Controller
 
         $reference = $request->reference;
 
-        $response = Http::withToken(config('services.paystack.secret'))
+        $response = Http::withToken(config('services.paystack.secret_key'))
             ->get("https://api.paystack.co/transaction/verify/{$reference}");
 
         if (!$response->ok()) {

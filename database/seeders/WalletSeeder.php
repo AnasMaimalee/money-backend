@@ -23,21 +23,28 @@ class WalletSeeder extends Seeder
 
         foreach ($users as $user) {
             // Determine funding based on role
-            if ($user->hasRole('super_admin') || $user->hasRole('admin')) {
+            if ($user->hasRole('superadmin') || $user->hasRole('administrator')) {
                 $amount = 50000;
             } else {
                 $amount = 100000;
             }
 
-            // Credit the wallet
-            $walletService->credit(
+            // ✅ Use public seeder-safe method instead of protected credit()
+            $tx = $walletService->seedCredit(
                 $user,
                 $amount,
                 'Initial funding via WalletSeeder'
             );
 
-            // Send email
-            Mail::to($user->email)->send(new WalletCredited($user, $amount, $user->wallet->balance));
+            // Send email after credit
+            Mail::to($user->email)->send(
+                new WalletCredited(
+                    $user,
+                    $amount,
+                    $tx->balance_after, // updated balance
+                    'Initial funding via WalletSeeder' // reason
+                )
+            );
 
             $this->command->info("Credited ₦{$amount} to {$user->name}'s wallet ({$user->email})");
         }

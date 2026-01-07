@@ -24,6 +24,8 @@ class BankAccount extends Model
         'account_name',
         'account_number',
         'bank_code',
+        'recipient_code',
+        'recipient_verified_at',
     ];
 
     public function user(): BelongsTo

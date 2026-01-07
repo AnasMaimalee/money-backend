@@ -211,7 +211,7 @@ Route::middleware('auth:api')->group(function () {
             ->middleware('role:administrator');
         Route::get('/request', [AdminPayoutController::class, 'listRequests'])
             ->middleware('role:superadmin');
-        Route::get('/myrequest', [AdminPayoutController::class, 'myPayoutRequests'])
+        Route::get('/my-request', [AdminPayoutController::class, 'myPayoutRequests'])
             ->middleware('role:administrator');
         Route::post('request', [AdminPayoutController::class, 'requestPayout'])
             ->middleware('role:administrator');

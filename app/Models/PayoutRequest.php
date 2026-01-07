@@ -26,6 +26,9 @@ class PayoutRequest extends Model
         'paid_at' => 'datetime',
     ];
 
+    protected $keyType = 'string';      // UUID is a string
+    public $incrementing = false;
+
     /* =======================
      |  RELATIONSHIPS
      |=======================*/

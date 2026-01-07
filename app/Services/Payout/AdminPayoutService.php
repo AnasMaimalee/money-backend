@@ -10,7 +10,6 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-use App\Models\AuditLog;
 use Illuminate\Support\Facades\Request;
 
 class AdminPayoutService
@@ -164,14 +163,4 @@ class AdminPayoutService
         ]);
     }
 
-    private function logAction(User $user, string $action, string $description = null)
-    {
-        AuditLog::create([
-            'user_id'    => $user->id ?? null,
-            'action'     => $action,
-            'description'=> $description,
-            'ip_address' => Request::ip(),
-            'user_agent' => Request::header('User-Agent'),
-        ]);
-    }
 }

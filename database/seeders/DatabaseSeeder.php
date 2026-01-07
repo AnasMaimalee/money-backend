@@ -16,14 +16,14 @@ class DatabaseSeeder extends Seeder
         // 2️⃣ Create users and assign roles
         $superAdmin = User::factory()->create([
             'name' => 'Super Admin',
-            'email' => 'superadmin@jambportal.com',
+            'email' => 'eduoasis2025@gmail.com',
             'password' => bcrypt('password'),
         ]);
         $superAdmin->assignRole('superadmin');
 
         $adminOne = User::factory()->create([
             'name' => 'Administrator',
-            'email' => 'admin@jambportal.com',
+            'email' => 'anasmaimalee@gmail.com',
             'password' => bcrypt('password'),
         ]);
         $adminOne->assignRole('administrator');
