@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+
 class WalletRepository
 {
     public function getByUserId(string $userId): Wallet

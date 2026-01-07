@@ -3,50 +3,100 @@
 namespace App\Services;
 
 use App\Repositories\UserManagementRepository;
-use Illuminate\Http\JsonResponse;
 
 class UserManagementService
 {
-    public function __construct(protected UserManagementRepository $repository)
-    {
-    }
+    public function __construct(
+        protected UserManagementRepository $repository,
+        protected WalletService $walletService
+    ) {}
+
+    /* ===============================
+        WALLET OPERATIONS (ADMIN ONLY)
+    ================================ */
 
     /**
-     * Manually debit user wallet
+     * Manually credit user wallet
+     * Money comes FROM super admin wallet
      */
-    public function manuallyDebitWallet($user, float $amount, string $reason = 'Manual debit by superadmin'): array
-    {
+    public function manuallyCreditWallet(
+        $user,
+        float $amount,
+        string $reason = 'Manual funding by superadmin'
+    ): array {
+        $this->ensureSuperadmin();
+
         if ($amount <= 0) {
             abort(422, 'Amount must be greater than zero.');
         }
 
-        if ($user->wallet->balance < $amount * 100) {
-            abort(422, 'Insufficient wallet balance for debit.');
-        }
-
-        app('wallet')->debit($user, $amount * 100, $reason);
+        $this->walletService->adminCreditUser(
+            auth()->user(),
+            $user,
+            $amount,
+            $reason
+        );
 
         $user->refresh();
 
         return [
-            'message' => "Wallet debited successfully by ₦" . number_format($amount, 2),
+            'message' => "Wallet credited successfully",
             'data' => [
                 'user' => $user->only(['id', 'name', 'email', 'phone']),
-                'new_balance' => $user->wallet->balance / 100,
-                'debited_amount' => $amount,
+                'credited_amount' => $amount,
+                'new_balance' => $user->wallet->balance,
                 'reason' => $reason,
             ]
         ];
     }
 
     /**
-     * Get wallet transaction history
+     * Manually debit user wallet
+     * Money goes TO super admin wallet
      */
-    public function getWalletTransactions(string $userId, int $perPage = 20)
+    public function manuallyDebitWallet(
+        $user,
+        float $amount,
+        string $reason = 'Manual debit by superadmin'
+    ): array {
+        $this->ensureSuperadmin();
+
+        if ($amount <= 0) {
+            abort(422, 'Amount must be greater than zero.');
+        }
+
+        $this->walletService->adminDebitUser(
+            auth()->user(),
+            $user,
+            $amount,
+            $reason
+        );
+
+        $user->refresh();
+
+        return [
+            'message' => "Wallet debited successfully",
+            'data' => [
+                'user' => $user->only(['id', 'name', 'email', 'phone']),
+                'debited_amount' => $amount,
+                'new_balance' => $user->wallet->balance,
+                'reason' => $reason,
+            ]
+        ];
+    }
+
+    /* ===============================
+        WALLET TRANSACTIONS
+    ================================ */
+
+    public function getWalletTransactions(string $userId, int $perPage = 20): array
     {
+        $this->ensureSuperadmin();
+
         $user = $this->findUserById($userId);
 
-        $transactions = $user->wallet->transactions()
+        $transactions = $user->wallet
+            ->transactions()
             ->latest()
             ->paginate($perPage);
 
@@ -54,11 +104,15 @@ class UserManagementService
             'message' => 'Wallet transactions retrieved successfully',
             'data' => [
                 'user' => $user->only(['id', 'name', 'email']),
-                'current_balance' => $user->wallet->balance / 100,
+                'current_balance' => $user->wallet->balance,
                 'transactions' => $transactions,
             ]
         ];
     }
+
+    /* ===============================
+        USER MANAGEMENT
+    ================================ */
 
     public function getUsers(?string $search = null, int $perPage = 20)
     {
@@ -70,27 +124,6 @@ class UserManagementService
     public function findUserById(string $id)
     {
         return $this->repository->findById($id);
-    }
-
-    public function manuallyCreditWallet($user, float $amount, string $reason = 'Manual funding by superadmin'): array
-    {
-        if ($amount <= 0) {
-            abort(422, 'Amount must be greater than zero.');
-        }
-
-        app('wallet')->credit($user, $amount * 100, $reason);
-
-        $user->refresh();
-
-        return [
-            'message' => "Wallet funded successfully with ₦" . number_format($amount, 2),
-            'data' => [
-                'user' => $user->only(['id', 'name', 'email', 'phone']),
-                'new_balance' => $user->wallet->balance / 100,
-                'credited_amount' => $amount,
-                'reason' => $reason,
-            ]
-        ];
     }
 
     public function softDeleteUser($user): array
@@ -114,9 +147,13 @@ class UserManagementService
         ];
     }
 
+    /* ===============================
+        SECURITY
+    ================================ */
+
     public function ensureSuperadmin(): void
     {
-        if (! auth()->user()->hasRole('superadmin')) {
+        if (!auth()->user()->hasRole('superadmin')) {
             abort(403, 'Only superadmin can manage users.');
         }
     }

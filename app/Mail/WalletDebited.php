@@ -16,9 +16,9 @@ class WalletDebited extends Mailable
     public function __construct(
         public $user,
         public $amount,
-        public $balance
+        public $balance,
+        public ?string $reason = null // ✅ OPTIONAL
     ) {}
-
     public function build()
     {
         return $this->subject('Wallet Debited')

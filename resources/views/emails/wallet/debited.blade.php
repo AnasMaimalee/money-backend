@@ -34,6 +34,11 @@
                                 <td style="padding:10px; background:#f9fafb; font-weight:bold;">Remaining Balance</td>
                                 <td style="padding:10px; background:#f9fafb;">₦{{ number_format($balance, 2) }}</td>
                             </tr>
+                            <tr>
+                                <td style="padding:10px; background:#f9fafb; font-weight:bold;">Reason</td>
+                                <td style="padding:10px; background:#f9fafb;">{{ $reason }}</td>
+                            </tr>
+
                         </table>
 
                         <p style="margin-top:20px;">
