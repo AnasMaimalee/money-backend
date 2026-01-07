@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Repositories\UserManagementRepository;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class UserManagementService
 {
@@ -12,15 +16,100 @@ class UserManagementService
     ) {}
 
     /* ===============================
-        WALLET OPERATIONS (ADMIN ONLY)
+        SECURITY
+    ================================ */
+
+    public function ensureSuperadmin(): void
+    {
+        if (! auth()->user()?->hasRole('superadmin')) {
+            abort(403, 'Only superadmin can manage users.');
+        }
+    }
+
+    /* ===============================
+        USER CREATION
+    ================================ */
+
+    /**
+     * Create user or administrator
+     * Sends password setup email
+     */
+    public function createUser(array $data): User
+    {
+        $this->ensureSuperadmin();
+
+        $role = $data['role'] === 'administrator' ? 'administrator' : 'user';
+
+        $tempPassword = Str::random(32);
+
+        $user = User::create([
+            'name'     => $data['name'],
+            'email'    => $data['email'],
+            'phone'    => $data['phone'],
+            'state'    => $data['state'],
+            'password' => Hash::make($tempPassword),
+        ]);
+
+        // Remove any roles and assign exactly one
+        $user->syncRoles([]);
+        $user->assignRole($role);
+
+        // Send password setup email
+        Password::sendResetLink(['email' => $user->email]);
+
+        // Reload roles & wallet for controller
+        return $user->load(['roles', 'wallet']);
+    }
+
+
+
+    /* ===============================
+        USER MANAGEMENT
+    ================================ */
+
+    public function getUsers(?string $search = null, int $perPage = 20)
+    {
+        return $search
+            ? $this->repository->search($search, $perPage)
+            : $this->repository->getPaginatedUsers($perPage);
+    }
+
+    public function findUserById(string $id): User
+    {
+        return $this->repository->findById($id);
+    }
+
+    public function softDeleteUser(User $user): array
+    {
+        $user->delete();
+
+        return [
+            'message' => 'User soft deleted successfully',
+            'data'    => $user->fresh(),
+        ];
+    }
+
+    public function restoreUser(string $id): array
+    {
+        $user = $this->repository->findTrashedById($id);
+        $user->restore();
+
+        return [
+            'message' => 'User restored successfully',
+            'data'    => $user->fresh()->load('wallet'),
+        ];
+    }
+
+    /* ===============================
+        WALLET OPERATIONS (SUPERADMIN)
     ================================ */
 
     /**
      * Manually credit user wallet
-     * Money comes FROM super admin wallet
+     * Money comes FROM superadmin wallet
      */
     public function manuallyCreditWallet(
-        $user,
+        User $user,
         float $amount,
         string $reason = 'Manual funding by superadmin'
     ): array {
@@ -40,22 +129,22 @@ class UserManagementService
         $user->refresh();
 
         return [
-            'message' => "Wallet credited successfully",
+            'message' => 'Wallet credited successfully',
             'data' => [
                 'user' => $user->only(['id', 'name', 'email', 'phone']),
                 'credited_amount' => $amount,
                 'new_balance' => $user->wallet->balance,
                 'reason' => $reason,
-            ]
+            ],
         ];
     }
 
     /**
      * Manually debit user wallet
-     * Money goes TO super admin wallet
+     * Money goes TO superadmin wallet
      */
     public function manuallyDebitWallet(
-        $user,
+        User $user,
         float $amount,
         string $reason = 'Manual debit by superadmin'
     ): array {
@@ -75,13 +164,13 @@ class UserManagementService
         $user->refresh();
 
         return [
-            'message' => "Wallet debited successfully",
+            'message' => 'Wallet debited successfully',
             'data' => [
                 'user' => $user->only(['id', 'name', 'email', 'phone']),
                 'debited_amount' => $amount,
                 'new_balance' => $user->wallet->balance,
                 'reason' => $reason,
-            ]
+            ],
         ];
     }
 
@@ -106,55 +195,7 @@ class UserManagementService
                 'user' => $user->only(['id', 'name', 'email']),
                 'current_balance' => $user->wallet->balance,
                 'transactions' => $transactions,
-            ]
+            ],
         ];
-    }
-
-    /* ===============================
-        USER MANAGEMENT
-    ================================ */
-
-    public function getUsers(?string $search = null, int $perPage = 20)
-    {
-        return $search
-            ? $this->repository->search($search, $perPage)
-            : $this->repository->getPaginatedUsers($perPage);
-    }
-
-    public function findUserById(string $id)
-    {
-        return $this->repository->findById($id);
-    }
-
-    public function softDeleteUser($user): array
-    {
-        $user->delete();
-
-        return [
-            'message' => 'User soft deleted successfully',
-            'data' => $user->fresh()
-        ];
-    }
-
-    public function restoreUser(string $id): array
-    {
-        $user = $this->repository->findTrashedById($id);
-        $user->restore();
-
-        return [
-            'message' => 'User restored successfully',
-            'data' => $user->fresh()->load('wallet')
-        ];
-    }
-
-    /* ===============================
-        SECURITY
-    ================================ */
-
-    public function ensureSuperadmin(): void
-    {
-        if (!auth()->user()->hasRole('superadmin')) {
-            abort(403, 'Only superadmin can manage users.');
-        }
     }
 }

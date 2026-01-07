@@ -14,7 +14,7 @@ class UserObserver
 
     public function created(User $user)
     {
-        Wallet::create([
+        Wallet::firstOrcreate([
             'user_id' => $user->id,
             'balance' => 0
         ]);

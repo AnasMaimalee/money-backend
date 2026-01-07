@@ -20,6 +20,10 @@ class UserManagementRepository
             ->paginate($perPage);
     }
 
+    public function create(array $data): User
+    {
+        return User::create($data);
+    }
     /**
      * Find user by ID
      */

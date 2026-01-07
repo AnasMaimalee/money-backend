@@ -55,6 +55,14 @@ Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
     Route::get('/login-audits', [LoginAuditController::class, 'index']);
 });
 
+
+Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
+    Route::post('/superadmin/admins', [AdminManagementController::class, 'store']);
+    Route::post('superadmin/users', [UserManagementController::class, 'store']);
+    Route::get('superadmin/admins', [AdminManagementController::class, 'index']);
+});
+
+
 /*
 |--------------------------------------------------------------------------
 | Paystack Webhook (Public - No Auth)

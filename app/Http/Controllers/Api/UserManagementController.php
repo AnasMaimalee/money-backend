@@ -4,88 +4,76 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\UserManagementService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class UserManagementController extends Controller
 {
-    public function __construct(protected UserManagementService $service)
-    {
-    }
+    public function __construct(
+        protected UserManagementService $service
+    ) {}
 
     /**
-     * List all regular users (with optional search)
+     * List users (with optional search)
      */
-
-    /**
-     * Manually debit user wallet
-     */
-    public function debitWallet(Request $request, string $userId): JsonResponse
-    {
-        $this->service->ensureSuperadmin();
-
-        $request->validate([
-            'amount' => 'required|numeric|min:1',
-            'reason' => 'nullable|string|max:255'
-        ]);
-
-        $user = $this->service->findUserById($userId);
-
-        $result = $this->service->manuallyDebitWallet(
-            $user,
-            $request->amount,
-            $request->reason ?? 'Manual debit by superadmin'
-        );
-
-        return response()->json($result);
-    }
-
-    /**
-     * View user wallet transaction history
-     */
-    public function transactions(string $userId): JsonResponse
-    {
-        $this->service->ensureSuperadmin();
-
-        $result = $this->service->getWalletTransactions($userId);
-
-        return response()->json($result);
-    }
-
     public function index(Request $request): JsonResponse
     {
         $this->service->ensureSuperadmin();
 
-        $search = $request->query('search');
-        $users = $this->service->getUsers($search);
+        $users = $this->service->getUsers(
+            $request->query('search')
+        );
 
         return response()->json([
             'message' => 'Users retrieved successfully',
-            'data' => $users,
+            'data'    => $users,
         ]);
     }
 
     /**
-     * Manually fund user wallet (emergency deposit)
+     * Create user or administrator
      */
-    public function fundWallet(Request $request, string $userId): JsonResponse
+    public function store(Request $request): JsonResponse
     {
         $this->service->ensureSuperadmin();
 
-        $request->validate([
-            'amount' => 'required|numeric|min:1',
-            'reason' => 'nullable|string|max:255'
+        $validated = $request->validate([
+            'name'  => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'phone' => 'required|string|unique:users,phone',
+            'state' => 'required|string',
+            'role'  => 'required|in:user,administrator',
         ]);
 
-        $user = $this->service->findUserById($userId);
+        // 🔹 Create user via service
+        $user = $this->service->createUser($validated);
 
-        $result = $this->service->manuallyCreditWallet(
-            $user,
-            $request->amount,
-            $request->reason ?? 'Manual funding by superadmin'
-        );
+        return response()->json([
+            'message' => ucfirst($validated['role']) . ' created. Password setup link sent to email.',
+            'user' => [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'state' => $user->state,
+                'role'  => $user->roles->pluck('name')->first(), // ✅ Now it will show
+                'wallet'=> $user->wallet,
+            ],
+        ], 201);
+    }
 
-        return response()->json($result, 200);
+
+    /**
+     * Show single user
+     */
+    public function show(string $userId): JsonResponse
+    {
+        $this->service->ensureSuperadmin();
+
+        return response()->json([
+            'message' => 'User retrieved successfully',
+            'data'    => $this->service->findUserById($userId),
+        ]);
     }
 
     /**
@@ -95,37 +83,76 @@ class UserManagementController extends Controller
     {
         $this->service->ensureSuperadmin();
 
-        $user = $this->service->findUserById($userId);
-
-        $result = $this->service->softDeleteUser($user);
-
-        return response()->json($result);
+        return response()->json(
+            $this->service->softDeleteUser(
+                $this->service->findUserById($userId)
+            )
+        );
     }
 
     /**
-     * Restore soft-deleted user
+     * Restore user
      */
-    public function restore(string $id): JsonResponse
+    public function restore(string $userId): JsonResponse
     {
         $this->service->ensureSuperadmin();
 
-        $result = $this->service->restoreUser($id);
-
-        return response()->json($result);
+        return response()->json(
+            $this->service->restoreUser($userId)
+        );
     }
 
     /**
-     * Show single user details
+     * Manually fund wallet
      */
-    public function show(string $userId): JsonResponse
+    public function fundWallet(Request $request, string $userId): JsonResponse
     {
         $this->service->ensureSuperadmin();
 
-        $user = $this->service->findUserById($userId);
-
-        return response()->json([
-            'message' => 'User retrieved successfully',
-            'data' => $user->load('wallet')
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'reason' => 'nullable|string|max:255',
         ]);
+
+        return response()->json(
+            $this->service->manuallyCreditWallet(
+                $this->service->findUserById($userId),
+                $validated['amount'],
+                $validated['reason'] ?? 'Manual funding by superadmin'
+            )
+        );
+    }
+
+    /**
+     * Manually debit wallet
+     */
+    public function debitWallet(Request $request, string $userId): JsonResponse
+    {
+        $this->service->ensureSuperadmin();
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        return response()->json(
+            $this->service->manuallyDebitWallet(
+                $this->service->findUserById($userId),
+                $validated['amount'],
+                $validated['reason'] ?? 'Manual debit by superadmin'
+            )
+        );
+    }
+
+    /**
+     * Wallet transaction history
+     */
+    public function transactions(string $userId): JsonResponse
+    {
+        $this->service->ensureSuperadmin();
+
+        return response()->json(
+            $this->service->getWalletTransactions($userId)
+        );
     }
 }

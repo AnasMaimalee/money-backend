@@ -5,7 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\AdminManagementService;
 use Illuminate\Http\JsonResponse;
-
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\AdminSetPasswordMail;
+use App\Models\User;
+use Illuminate\Support\Str;
 class AdminManagementController extends Controller
 {
     public function __construct(protected AdminManagementService $service)
@@ -26,6 +32,40 @@ class AdminManagementController extends Controller
             'data' => $admins,
         ]);
     }
+
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name'  => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'phone' => 'required|string|unique:users,phone',
+            'state' => 'required|string',
+        ]);
+
+        $tempPassword = Str::random(32);
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'phone'    => $request->phone,
+            'state'    => $request->state,
+            'password' => Hash::make($tempPassword),
+        ]);
+
+        $user->assignRole('administrator');
+
+        // 🔐 Send set-password link
+        Password::sendResetLink([
+            'email' => $user->email,
+        ]);
+
+        return response()->json([
+            'message' => 'Administrator created. Password setup link sent to email.',
+            'user' => $user->load('wallet'),
+        ], 201);
+    }
+
 
     /**
      * Soft delete administrator
