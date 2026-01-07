@@ -7,6 +7,11 @@ use App\Models\WalletTransaction;
 
 class WalletRepository
 {
+
+    public function transactionsQuery()
+    {
+        return WalletTransaction::query();
+    }
     public function getByUserId(string $userId): Wallet
     {
         return Wallet::where('user_id', $userId)->firstOrFail();

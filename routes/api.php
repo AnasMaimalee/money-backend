@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Auth\MeController;
 use App\Http\Controllers\Api\Wallet\WalletController;
+use App\Http\Controllers\Api\Wallet\WalletHistoryController;
 use App\Http\Controllers\Api\Wallet\PaymentController;
 use App\Http\Controllers\Api\Wallet\ServiceRequestController;
 use App\Http\Controllers\Api\Service\JambResult\JambResultController;
@@ -240,4 +241,22 @@ Route::middleware('auth:api')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::post('/test/payout/factory', [PayoutTestController::class, 'seed']);
+});
+
+/*
+ * Wallet History Generating PDF
+ * */
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::get('/wallet/history', [WalletHistoryController::class, 'myHistory']);
+    Route::get('/wallet/history/pdf', [WalletHistoryController::class, 'myHistoryPdf']);
+
+    Route::middleware('role:admin|superadmin')->group(function () {
+        Route::get('/wallet/history/pdf/user/{user}', [WalletHistoryController::class, 'userHistoryPdf']);
+    });
+
+    Route::middleware('role:superadmin')->group(function () {
+        Route::get('/wallet/history/pdf/all', [WalletHistoryController::class, 'allHistoryPdf']);
+    });
 });
