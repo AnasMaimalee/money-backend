@@ -5,166 +5,173 @@ namespace App\Services\Payout;
 use App\Enums\PayoutStatus;
 use App\Models\PayoutRequest;
 use App\Models\User;
+use App\Services\WalletService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+use App\Models\AuditLog;
+use Illuminate\Support\Facades\Request;
+
 class AdminPayoutService
 {
     public function __construct(
-        protected PaystackPayoutService $paystack
+        protected PaystackPayoutService $paystack,
+        protected WalletService $walletService
     ) {}
 
-    /**
-     * Admin requests a payout from their wallet
-     */
+    /* =====================================================
+        ADMIN REQUEST PAYOUT
+    ====================================================== */
     public function request(User $admin, float $amount): PayoutRequest
     {
-        // Role check
         if (! $admin->hasRole('administrator')) {
             abort(403, 'Only administrators can request payouts.');
         }
 
-        // Bank details check
-        if (! $admin->bankAccount) {
-            abort(422, 'Please set bank details first');
+        $bank = $admin->bankAccount;
+        if (! $bank) {
+            abort(422, 'Please set bank details first.');
         }
 
-        // Ensure recipient code exists in Paystack (create if not)
-        if (empty($admin->bankAccount->recipient_code)) {
-            $this->createPaystackRecipient($admin);
-        }
-
-        // Wallet balance check
         $wallet = $admin->wallet;
         if (! $wallet || $amount > $wallet->balance) {
-            abort(422, 'Insufficient wallet balance');
+            abort(422, 'Insufficient wallet balance.');
         }
 
-        // Prevent multiple pending requests
-        if ($admin->payoutRequests()->where('status', PayoutStatus::PENDING->value)->exists()) {
-            abort(422, 'You already have a pending payout request');
+        if (
+            $admin->payoutRequests()
+                ->where('status', PayoutStatus::PENDING)
+                ->exists()
+        ) {
+            abort(422, 'You already have a pending payout request.');
         }
 
-        // Minimum amount (optional - adjust as needed)
-        if ($amount < 1000) { // e.g., ₦1000 minimum
-            abort(422, 'Minimum payout amount is ₦1,000');
+        if ($amount < 1000) {
+            abort(422, 'Minimum payout amount is ₦1,000.');
+        }
+
+        // 🔥 Ensure Paystack recipient exists
+        if (empty($bank->recipient_code)) {
+            $this->createPaystackRecipient($admin);
+            $bank->refresh();
+        }
+
+        if (empty($bank->recipient_code)) {
+            abort(422, 'Unable to configure bank recipient. Please contact support.');
         }
 
         return PayoutRequest::create([
             'admin_id'         => $admin->id,
-            'amount'           => $amount * 100, // Paystack uses kobo (amount in cents)
+            'amount'           => (int) ($amount * 100), // store kobo
             'status'           => PayoutStatus::PENDING,
             'balance_snapshot' => $wallet->balance,
         ]);
     }
 
-    /**
-     * Superadmin approves payout and triggers Paystack transfer
-     */
-    public function approveAndPay(PayoutRequest $payout, User $superAdmin): array
-    {
-        // Authorization
+    /* =====================================================
+        SUPERADMIN APPROVES & PAYS
+    ====================================================== */
+    public function approveAndPay(
+        PayoutRequest $payout,
+        User $superAdmin
+    ) {
         if (! $superAdmin->hasRole('superadmin')) {
-            abort(403, 'Only superadmin can approve payouts.');
+            abort(403, 'Only superadmin can approve payouts');
         }
 
-        if ($payout->status !== PayoutStatus::PENDING) {
-            abort(422, 'Payout is not in pending state.');
+        $admin = $payout->administrator;
+        $bank  = $admin->bankAccount;
+
+        if (! $bank) {
+            abort(400, 'Admin bank details not found.');
         }
 
-        $admin = $payout->admin;
-        $bankAccount = $admin->bankAccount;
+        return DB::transaction(function () use ($payout, $admin, $bank) {
 
-        if (! $bankAccount || empty($bankAccount->recipient_code)) {
-            abort(422, 'Admin bank recipient not configured.');
-        }
-
-        return DB::transaction(function () use ($payout, $admin, $bankAccount, $superAdmin) {
-            try {
-                // Initiate transfer via Paystack
-                $transferResponse = $this->paystack->initiateTransfer([
-                    'source'    => 'balance',
-                    'amount'    => $payout->amount, // already in kobo
-                    'recipient' => $bankAccount->recipient_code,
-                    'reason'    => 'Admin earnings payout',
+            /**
+             * 1️⃣ CREATE RECIPIENT IF NOT EXISTS
+             */
+            if (! $bank->recipient_code) {
+                $recipientResponse = $this->paystack->createRecipient([
+                    'type'           => 'nuban',
+                    'name'           => $bank->account_name,
+                    'account_number' => $bank->account_number,
+                    'bank_code'      => $bank->bank_code,
+                    'currency'       => 'NGN',
                 ]);
 
-                if ($transferResponse['status'] !== true) {
-                    throw new Exception('Paystack transfer failed: ' . ($transferResponse['message'] ?? 'Unknown error'));
+                $recipientCode = $recipientResponse['data']['recipient_code'] ?? null;
+
+                if (! $recipientCode) {
+                    abort(500, 'Unable to configure bank recipient. Please contact support.');
                 }
-
-                $reference = $transferResponse['data']['reference'] ?? null;
-
-                // Debit wallet only after successful initiation
-                app('wallet')->debit(
-                    $admin,
-                    $payout->amount / 100, // convert back to naira for wallet
-                    'Payout withdrawal',
-                    ['payout_id' => $payout->id, 'reference' => $reference]
-                );
-
-                // Update payout record
-                $payout->update([
-                    'status'      => PayoutStatus::PAID,
-                    'approved_by' => $superAdmin->id,
-                    'approved_at' => now(),
-                    'reference'   => $reference,
-                    'paid_at'     => now(),
-                ]);
-
-                return [
-                    'message'   => 'Payout processed successfully',
-                    'payout_id' => $payout->id,
-                    'reference' => $reference,
-                    'amount'    => $payout->amount / 100,
-                    'status'    => 'completed',
-                ];
-
-            } catch (Exception $e) {
-                Log::error('Payout approval failed', [
-                    'payout_id' => $payout->id,
-                    'error'     => $e->getMessage(),
-                    'trace'     => $e->getTraceAsString(),
-                ]);
-
-                abort(500, 'Failed to process payout. Please try again later.');
-            }
-        });
-    }
-
-    /**
-     * Create Paystack transfer recipient if not exists
-     */
-    private function createPaystackRecipient(User $admin): void
-    {
-        $bank = $admin->bankAccount;
-
-        try {
-            $response = $this->paystack->createRecipient([
-                'type'          => 'nuban',
-                'name'          => $bank->account_name,
-                'account_number'=> $bank->account_number,
-                'bank_code'     => $bank->bank_code,
-                'currency'      => 'NGN',
-            ]);
-
-            if ($response['status'] === true) {
-                $recipientCode = $response['data']['recipient_code'];
 
                 $bank->update([
                     'recipient_code' => $recipientCode,
                 ]);
-            } else {
-                throw new Exception('Failed to create Paystack recipient');
             }
-        } catch (Exception $e) {
-            Log::error('Failed to create Paystack recipient for admin', [
-                'admin_id' => $admin->id,
-                'error'    => $e->getMessage(),
+
+            /**
+             * 2️⃣ INITIATE PAYSTACK TRANSFER
+             */
+            $transferResponse = $this->paystack->initiateTransfer([
+                'amount'    => (int) ($payout->amount * 100), // kobo
+                'recipient' => $bank->recipient_code,
+                'reason'    => "Admin payout for request #{$payout->id}",
             ]);
 
-            abort(422, 'Unable to link bank account with payment provider. Contact support.');
+            /**
+             * 3️⃣ UPDATE PAYOUT STATUS
+             */
+            $payout->update([
+                'status'      => 'paid',
+                'approved_by' => auth()->id(),
+                'paid_at'     => now(),
+                'reference'   => $transferResponse['data']['reference'] ?? null,
+            ]);
+
+            return $transferResponse['data'];
+        });
+    }
+    /* =====================================================
+        CREATE PAYSTACK RECIPIENT (FIXED)
+    ====================================================== */
+    private function createPaystackRecipient(User $admin): void
+    {
+        $bank = $admin->bankAccount;
+
+        $response = $this->paystack->createRecipient([
+            'type'           => 'nuban',
+            'name'           => $bank->account_name,
+            'account_number' => $bank->account_number,
+            'bank_code'      => $bank->bank_code,
+            'currency'       => 'NGN',
+        ]);
+
+        // 🔥 LOG PAYSTACK RESPONSE (VERY IMPORTANT)
+        Log::info('Paystack recipient response', $response);
+
+        if (! ($response['status'] ?? false)) {
+            abort(
+                422,
+                'Paystack error: ' . ($response['message'] ?? 'Recipient creation failed')
+            );
         }
+
+        $bank->update([
+            'recipient_code' => $response['data']['recipient_code'],
+        ]);
+    }
+
+    private function logAction(User $user, string $action, string $description = null)
+    {
+        AuditLog::create([
+            'user_id'    => $user->id ?? null,
+            'action'     => $action,
+            'description'=> $description,
+            'ip_address' => Request::ip(),
+            'user_agent' => Request::header('User-Agent'),
+        ]);
     }
 }

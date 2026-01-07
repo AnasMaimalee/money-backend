@@ -113,4 +113,10 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasManyThrough(WalletTransaction::class, Wallet::class);
     }
 
+    public function loginAudits()
+    {
+        return $this->hasMany(\App\Models\LoginAudit::class);
+    }
+
+
 }

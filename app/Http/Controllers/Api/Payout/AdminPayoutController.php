@@ -10,14 +10,14 @@ use Illuminate\Http\Request;
 
 class AdminPayoutController extends Controller
 {
+    // Superadmin sees all payout requests
     public function listRequests(Request $request): JsonResponse
     {
         $user = auth()->user();
 
-        $query = PayoutRequest::with('admin') // optional: load admin name/email
-        ->latest();
+        $query = PayoutRequest::with('administrator')->latest();
 
-        if (! $user->hasRole('administrator')) {
+        if ($user->hasRole('administrator')) {
             $query->where('admin_id', $user->id);
         }
 
@@ -25,9 +25,30 @@ class AdminPayoutController extends Controller
 
         return response()->json([
             'message' => 'Payout requests retrieved successfully',
-            'data' => $payouts,
+            'data'    => $payouts,
         ]);
     }
+
+    // Admin sees only their own payout requests
+    public function myPayoutRequests(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        if (! $user->hasRole('administrator')) {
+            abort(403, 'Only administrators can view their payout requests');
+        }
+
+        $payouts = PayoutRequest::with('administrator')
+            ->where('admin_id', $user->id)
+            ->latest()
+            ->paginate(20);
+
+        return response()->json([
+            'message' => 'My payout requests retrieved successfully',
+            'data'    => $payouts,
+        ]);
+    }
+
     /**
      * Admin requests payout
      */
@@ -51,7 +72,7 @@ class AdminPayoutController extends Controller
     }
 
     /**
-     * Super Admin approves & triggers Paystack payout
+     * Superadmin approves & triggers Paystack payout
      */
     public function approvePayout(
         PayoutRequest $payout,

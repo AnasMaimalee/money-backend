@@ -23,7 +23,7 @@ use App\Http\Controllers\Api\Service\UserServiceController;
 use App\Http\Controllers\Api\Payout\BankAccountController;
 use App\Http\Controllers\Api\AdminManagementController;
 use App\Http\Controllers\Api\UserManagementController;
-
+use App\Http\Controllers\Api\Auth\LoginAuditController;
 /*
 |--------------------------------------------------------------------------
 | Public Auth Routes
@@ -32,6 +32,11 @@ use App\Http\Controllers\Api\UserManagementController;
 Route::prefix('auth')->group(function () {
     Route::post('/register', [MeController::class, 'register']);
     Route::post('/login', [MeController::class, 'login']);
+});
+
+
+Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
+    Route::get('/login-audits', [LoginAuditController::class, 'index']);
 });
 
 /*
@@ -205,6 +210,8 @@ Route::middleware('auth:api')->group(function () {
         Route::post('bank', [BankAccountController::class, 'storeOrUpdate'])
             ->middleware('role:administrator');
         Route::get('/request', [AdminPayoutController::class, 'listRequests'])
+            ->middleware('role:superadmin');
+        Route::get('/myrequest', [AdminPayoutController::class, 'myPayoutRequests'])
             ->middleware('role:administrator');
         Route::post('request', [AdminPayoutController::class, 'requestPayout'])
             ->middleware('role:administrator');

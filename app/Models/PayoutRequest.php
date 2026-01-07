@@ -58,4 +58,24 @@ class PayoutRequest extends Model
     {
         return $query->where('status', 'rejected');
     }
+
+    public function administrator()
+    {
+        return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    // Optionally, if you have a user who made the request
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+
+    /**
+     * Superadmin who approved payout
+     */
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
 }

@@ -34,7 +34,7 @@ class AdminManagementController extends Controller
     {
         $this->service->ensureSuperadmin();
 
-        $admin = $this->service->repository->findById($adminId);
+        $admin = $this->service->findAdministratorById($adminId);
 
         $result = $this->service->deleteAdministrator($admin);
 

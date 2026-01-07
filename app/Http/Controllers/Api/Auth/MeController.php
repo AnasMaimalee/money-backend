@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\AdminAccountCreated;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Str;
+use App\Models\LoginAudit;
+use Illuminate\Support\Facades\Http;
 
 class MeController extends Controller
 {
@@ -54,10 +56,15 @@ class MeController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (!$token = JWTAuth::attempt($credentials)) {
+            // Log failed login
+            $this->logLoginAttempt(null, $request, false);
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
         $user = auth()->user();
+
+        // Log successful login
+        $this->logLoginAttempt($user, $request, true);
 
         return response()->json([
             'token' => $token,
@@ -94,6 +101,31 @@ class MeController extends Controller
         return response()->json([
             'message' => 'Administrator created successfully',
             'user' => $this->formatUser($user->load('wallet')), // optional: include wallet
+        ]);
+    }
+
+    private function logLoginAttempt($user, Request $request, bool $success)
+    {
+        $ip = $request->ip();
+        $userAgent = $request->header('User-Agent');
+
+        // Optional: get location from IP
+        $location = null;
+        try {
+            $geo = Http::get("http://ip-api.com/json/{$ip}")->json();
+            if ($geo['status'] === 'success') {
+                $location = $geo['city'] . ', ' . $geo['country'];
+            }
+        } catch (\Exception $e) {
+            $location = null;
+        }
+
+        LoginAudit::create([
+            'user_id'    => $user?->id,
+            'ip_address' => $ip,
+            'user_agent' => $userAgent,
+            'location'   => $location,
+            'success'    => $success,
         ]);
     }
 
