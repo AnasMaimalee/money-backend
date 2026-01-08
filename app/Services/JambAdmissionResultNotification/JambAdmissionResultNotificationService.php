@@ -156,7 +156,7 @@ class JambAdmissionResultNotificationService
             }
 
             $job->update([
-                'status'       => 'completed_by_admin',
+                'status'       => 'completed',
                 'result_file'  => $filePath,
                 'completed_by' => $admin->id,
             ]);

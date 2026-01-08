@@ -226,7 +226,7 @@ Route::get('/storage/{path}', function (string $path) {
 
     return response()->file($filePath, [
         'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'attachment; filename="jamb-result.pdf"',
+        'Content-Disposition' => 'attachment; filename="jamb-service.pdf"',
         'Cache-Control' => 'public, max-age=3600',
     ]);
 })->where('path', '.*');

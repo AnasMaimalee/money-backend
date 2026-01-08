@@ -201,7 +201,7 @@ class JambAdmissionStatusService
         return DB::transaction(function () use ($id, $superAdmin) {
             $job = $this->repo->find($id);
 
-            if ($job->status !== 'completed_by_admin') {
+            if ($job->status !== 'completed') {
                 abort(422, 'Job is not ready for approval');
             }
 
