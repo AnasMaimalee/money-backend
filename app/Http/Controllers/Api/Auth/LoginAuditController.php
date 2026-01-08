@@ -31,4 +31,20 @@ class LoginAuditController extends Controller
             'data' => $audits,
         ]);
     }
+
+    public function user($userId)
+    {
+
+        $query = LoginAudit::with('user')
+            ->where('user_id', $userId)
+            ->latest();
+
+        $audits = $query->paginate(20);
+
+        return response()->json([
+            'message' => 'User login audits retrieved successfully',
+            'data' => $audits,
+            'user_id' => $userId
+        ]);
+    }
 }

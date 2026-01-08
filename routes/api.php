@@ -53,7 +53,9 @@ Route::post('email/verification-notification', [EmailVerificationController::cla
 
 // Superadmin: Login Audits
 Route::middleware(['auth:api', 'role:superadmin'])->get('/login-audits', [LoginAuditController::class, 'index']);
-
+// Single user audits ✅ NEW
+Route::get('/login-audits/user/{userId}', [LoginAuditController::class, 'user'])
+    ->middleware('auth:api');
 // Superadmin: Admin & User Management
 Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
     Route::post('/superadmin/admins', [AdminManagementController::class, 'store']);
