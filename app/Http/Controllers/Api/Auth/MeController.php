@@ -256,7 +256,7 @@ class MeController extends Controller
                 ['name' => 'Pricing', 'route' => '/superadmin/pricing', 'icon' => 'DollarOutlined'],
 
                 // JAMB Services for Superadmin (different routes)
-                ['name' => 'JAMB Services', 'route' => '/superadmin/services/jamb-result', 'icon' => 'AppstoreOutlined'],
+                ['name' => 'JAMB Original Result', 'route' => '/superadmin/services/jamb-result', 'icon' => 'AppstoreOutlined'],
                 ['name' => 'JAMB Admission Letter', 'route' => '/superadmin/services/admission-letter', 'icon' => 'FileTextOutlined'],
                 ['name' => 'JAMB Olevel Status', 'route' => '/superadmin/services/olevel-status', 'icon' => 'ProfileOutlined'],
                 ['name' => 'Admission Letter Checking', 'route' => '/superadmin/services/check-admission', 'icon' => 'CheckCircleOutlined'],

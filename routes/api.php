@@ -212,3 +212,21 @@ Route::middleware('auth:api')->group(function () {
      |-------------------------------------------------------------------------- */
     Route::post('/test/payout/factory', [PayoutTestController::class, 'seed']);
 });
+
+/*
+ * downlaoding files
+ * */
+// JAMB PDF DOWNLOAD - PERFECT
+Route::get('/storage/{path}', function (string $path) {
+    $filePath = storage_path('app/public/' . $path);
+
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found');
+    }
+
+    return response()->file($filePath, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="jamb-result.pdf"',
+        'Cache-Control' => 'public, max-age=3600',
+    ]);
+})->where('path', '.*');
