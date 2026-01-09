@@ -81,4 +81,23 @@ class ServicePriceController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Get active services for landing page (PUBLIC - No auth required)
+     * Returns: name, description, price for frontend carousel
+     */
+    public function landingPageServices()
+    {
+        $services = Service::where('active', true)
+            ->select([
+                'id',
+                'name',
+                'description',
+                'customer_price as price'
+            ])
+            ->orderBy('customer_price', 'asc') // Optional: sort by price
+            ->get();
+
+        return response()->json($services);
+    }
 }

@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\UserManagementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-
+use App\Models\User;
 class UserManagementController extends Controller
 {
     public function __construct(
@@ -21,8 +21,12 @@ class UserManagementController extends Controller
         $this->service->ensureSuperadmin();
 
         $users = $this->service->getUsers(
-            $request->query('search')
+            $request->query('search'),
+            $request->query('role'),
+            $request->boolean('trashed', false),
+            $request->get('per_page', 20)
         );
+
 
         return response()->json([
             'message' => 'Users retrieved successfully',
@@ -102,6 +106,21 @@ class UserManagementController extends Controller
         );
     }
 
+    // ✅ FORCE DELETE (permanent)
+    public function forceDelete($id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+        $user->forceDelete(); // ✅ Permanent delete
+
+        return response()->json(['message' => 'User permanently deleted']);
+    }
+
+    // ✅ GET TRASHED USERS (for admin table)
+    public function trashed()
+    {
+        $trashedUsers = User::onlyTrashed()->get();
+        return response()->json($trashedUsers);
+    }
     /**
      * Manually fund wallet
      */

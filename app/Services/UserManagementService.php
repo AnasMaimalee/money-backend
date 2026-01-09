@@ -67,12 +67,25 @@ class UserManagementService
         USER MANAGEMENT
     ================================ */
 
-    public function getUsers(?string $search = null, int $perPage = 20)
+    public function getUsers(?string $search = null, ?string $role = null, bool $trashed = false, int $perPage = 20)
     {
-        return $search
-            ? $this->repository->search($search, $perPage)
-            : $this->repository->getPaginatedUsers($perPage);
+        return $trashed
+            ? $this->repository->getTrashedUsers($search, $role, $perPage)
+            : $this->repository->search($search, $role, $perPage);
     }
+
+    public function restoreUser(string $id): array
+    {
+        $user = $this->repository->findTrashedById($id); // ✅ Fixed
+        $user->restore();
+
+        return [
+            'message' => 'User restored successfully',
+            'data'    => $user->fresh()->load('wallet'),
+        ];
+    }
+
+
 
     public function findUserById(string $id): User
     {
@@ -89,16 +102,7 @@ class UserManagementService
         ];
     }
 
-    public function restoreUser(string $id): array
-    {
-        $user = $this->repository->findTrashedById($id);
-        $user->restore();
-
-        return [
-            'message' => 'User restored successfully',
-            'data'    => $user->fresh()->load('wallet'),
-        ];
-    }
+  
 
     /* ===============================
         WALLET OPERATIONS (SUPERADMIN)

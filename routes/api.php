@@ -61,6 +61,7 @@ Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
     Route::post('/superadmin/admins', [AdminManagementController::class, 'store']);
     Route::post('superadmin/users', [UserManagementController::class, 'store']);
     Route::get('superadmin/admins', [AdminManagementController::class, 'index']);
+
 });
 
 /* |--------------------------------------------------------------------------
@@ -96,6 +97,7 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/{userId}/transactions', [UserManagementController::class, 'transactions']);
             Route::delete('/{userId}', [UserManagementController::class, 'destroy']);
             Route::post('/{id}/restore', [UserManagementController::class, 'restore']);
+            Route::get('/users/trashed', [UserManagementController::class, 'trashed']);
         });
     });
 
@@ -213,39 +215,32 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/test/payout/factory', [PayoutTestController::class, 'seed']);
 });
 
-/*
- * downlaoding files
- * */
-// ✅ UNIVERSAL FILE DOWNLOAD (PDF + IMAGES)
-Route::get('/storage/{path}', function (string $path) {
-    $filePath = storage_path('app/public/' . $path);
+Route::get('/landing-services', [ServicePriceController::class, 'landingPageServices']);
 
-    if (!file_exists($filePath)) {
-        abort(404, 'File not found');
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+Route::get('/download-storage/{path}', function (string $path) {
+    try {
+        // ✅ Use Laravel Storage Facade
+        if (!Storage::disk('public')->exists($path)) {
+            abort(404, 'File not found');
+        }
+
+        $file = Storage::disk('public')->path($path);
+        $mimeType = Storage::disk('public')->mimeType($path);
+        $originalName = basename($path);
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+
+        return response()->file($file, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => "attachment; filename=\"{$originalName}\"",
+            'Content-Length' => Storage::disk('public')->size($path),
+            // ✅ CORS HEADERS
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Expose-Headers' => 'Content-Disposition, Content-Type, Content-Length',
+        ]);
+    } catch (\Exception $e) {
+        abort(404, 'Download failed');
     }
-
-    // ✅ MIME TYPE DETECTION
-    $mimeTypes = [
-        'pdf' => 'application/pdf',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'gif' => 'image/gif',
-        'webp' => 'image/webp',
-    ];
-
-    $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-    $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
-
-    // ✅ DYNAMIC FILENAME
-    $originalName = basename($filePath);
-    $filename = $originalName;
-
-    return response()->file($filePath, [
-        'Content-Type' => $contentType,
-        'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        'Content-Length' => filesize($filePath),
-        'Cache-Control' => 'public, max-age=3600',
-        'Last-Modified' => filemtime($filePath),
-    ]);
 })->where('path', '.*');
