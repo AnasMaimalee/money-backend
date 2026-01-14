@@ -2,50 +2,85 @@
 
 namespace App\Repositories\CBT;
 
-use App\Models\User;
+use App\Models\Wallet;
 use App\Models\WalletTransaction;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
 
 class WalletPaymentRepository
 {
     /**
-     * Get the current wallet balance for a user.
+     * Get user's wallet balance
      */
     public function getUserBalance(string $userId): float
     {
-        return User::where('id', $userId)->value('wallet_balance') ?? 0;
+        return (float) Wallet::where('user_id', $userId)
+            ->value('balance');
     }
 
     /**
-     * Debit the wallet for a user.
-     * Returns the WalletTransaction record.
-     * Throws exception if balance insufficient.
+     * Check if transaction already exists (idempotency)
      */
-    public function debitWallet(string $userId, float $amount, string $examId): WalletTransaction
+    public function transactionExists(string $groupReference): bool
     {
-        return DB::transaction(function () use ($userId, $amount, $examId) {
+        return WalletTransaction::where('group_reference', $groupReference)->exists();
+    }
 
-            $user = User::findOrFail($userId);
+    /**
+     * Debit wallet safely (row locked)
+     */
+    public function debitWallet(
+        string $userId,
+        float $amount,
+        string $reference,
+        string $groupReference
+    ): WalletTransaction {
+        $wallet = Wallet::where('user_id', $userId)
+            ->lockForUpdate()
+            ->firstOrFail();
 
-            if ($user->wallet_balance < $amount) {
-                throw new \Exception('Insufficient wallet balance');
-            }
+        $before = (float) $wallet->balance;
+        $after  = $before - $amount;
 
-            // Deduct balance
-            $user->wallet_balance -= $amount;
-            $user->save();
+        $wallet->update(['balance' => $after]);
 
-            // Record transaction
-            $transaction = WalletTransaction::create([
-                'id' => Str::uuid(),
-                'user_id' => $userId,
-                'amount' => $amount,
-                'type' => 'debit',
-                'description' => "CBT Exam Fee for Exam: $examId",
-            ]);
+        return WalletTransaction::create([
+            'wallet_id' => $wallet->id,
+            'user_id' => $userId,
+            'type' => 'debit',
+            'amount' => $amount,
+            'balance_before' => $before,
+            'balance_after' => $after,
+            'reference' => $reference,
+            'group_reference' => $groupReference,
+            'description' => 'CBT Exam Fee',
+        ]);
+    }
 
-            return $transaction;
-        });
+    /**
+     * Credit wallet (refund)
+     */
+    public function creditWallet(
+        string $userId,
+        float $amount,
+        string $reference
+    ): WalletTransaction {
+        $wallet = Wallet::where('user_id', $userId)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $before = (float) $wallet->balance;
+        $after  = $before + $amount;
+
+        $wallet->update(['balance' => $after]);
+
+        return WalletTransaction::create([
+            'wallet_id' => $wallet->id,
+            'user_id' => $userId,
+            'type' => 'credit',
+            'amount' => $amount,
+            'balance_before' => $before,
+            'balance_after' => $after,
+            'reference' => $reference,
+            'description' => 'CBT Exam Fee Refund',
+        ]);
     }
 }

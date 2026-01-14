@@ -8,30 +8,30 @@ use App\Repositories\CBT\ResultRepository;
 class ResultService
 {
     public function __construct(
-        protected ResultRepository $resultRepository
+        protected ResultRepository $resultRepository,
+        protected ExamSessionService $examSessionService
     ) {}
 
+    /**
+     * Full result breakdown
+     */
     public function getResult(Exam $exam): array
     {
         // Ownership check
         if ($exam->user_id !== auth()->id()) {
-            throw new \Exception('Unauthorized access to result');
+            abort(403, 'Unauthorized access to result');
         }
 
         if ($exam->status !== 'submitted') {
-            throw new \Exception('Exam not yet submitted');
+            abort(400, 'Exam not yet submitted');
         }
 
-        $attempts = $this->resultRepository
-            ->getExamAttempts($exam->id);
+        // Use subjectBreakdown
+        $subjectBreakdown = $this->resultRepository->subjectBreakdown($exam->id);
 
-        $answers = $this->resultRepository
-            ->getExamAnswers($exam->id);
-
-        $totalCorrect = $answers->where('is_correct', true)->count();
-        $totalQuestions = $answers->count();
+        $totalCorrect = collect($subjectBreakdown)->sum('correct');
+        $totalQuestions = collect($subjectBreakdown)->sum('total_questions');
         $totalWrong = $totalQuestions - $totalCorrect;
-
         $percentage = $totalQuestions > 0
             ? round(($totalCorrect / $totalQuestions) * 100, 2)
             : 0;
@@ -39,28 +39,25 @@ class ResultService
         return [
             'exam' => [
                 'exam_id' => $exam->id,
+                'total_score' => $exam->total_score,
                 'total_questions' => $totalQuestions,
                 'correct' => $totalCorrect,
                 'wrong' => $totalWrong,
                 'percentage' => $percentage,
-                'started_at' => $exam->started_at,
+                'time_used_seconds' => $exam->time_used_seconds,
                 'submitted_at' => $exam->submitted_at,
             ],
 
-            'subjects' => $attempts->map(function ($attempt) {
-                return [
-                    'subject_id' => $attempt->subject->id,
-                    'subject' => $attempt->subject->name,
-                    'score' => $attempt->score,
-                ];
-            }),
+            // Subjects breakdown
+            'subjects' => $subjectBreakdown,
 
-            // 🔥 Frontend chart-ready
+            // Chart-ready data
             'charts' => [
-                'subject_scores' => $attempts->map(fn ($a) => [
-                    'label' => $a->subject->name,
-                    'value' => $a->score,
-                ]),
+                'subject_scores' => collect($subjectBreakdown)
+                    ->map(fn($s) => [
+                        'label' => $s['subject'],
+                        'value' => $s['score'],
+                    ])->values(),
                 'overall' => [
                     'correct' => $totalCorrect,
                     'wrong' => $totalWrong,
@@ -69,16 +66,15 @@ class ResultService
         ];
     }
 
+    /**
+     * Lightweight summary for dashboard/history
+     */
     public function summary(Exam $exam): array
     {
         if ($exam->status !== 'submitted') {
-            throw new \Exception('Result not ready');
+            abort(400, 'Result not ready');
         }
 
-        return [
-            'exam_id' => $exam->id,
-            'summary' => $this->repository->getSummary($exam),
-        ];
+        return $this->resultRepository->getSummary($exam);
     }
-
 }

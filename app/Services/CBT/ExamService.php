@@ -3,154 +3,145 @@
 namespace App\Services\CBT;
 
 use App\Models\Exam;
-use App\Repositories\CBT\ExamRepository;
 use Illuminate\Support\Facades\DB;
+use App\Repositories\CBT\ExamRepository;
+use App\Services\CBT\CbtSettingService;
 use App\Notifications\ExamStartedNotification;
+use App\Notifications\ExamSubmittedNotification;
 
 class ExamService
 {
     public function __construct(
         protected ExamRepository $examRepository,
-        protected ExamSessionService $examSessionService
+        protected CbtSettingService $cbtSettingService
     ) {}
 
-    /**
-     * Start a new CBT exam
-     */
+    // ---------------- START EXAM ----------------
     public function startExam(string $userId, array $subjectIds): Exam
     {
-        $existing = $this->examRepository->findOngoingExam($userId);
+        $settings = $this->cbtSettingService->getSettings();
 
-        if ($existing) {
+        // English compulsory
+        if (!$this->examRepository->subjectExistsBySlug($subjectIds, 'english-language')) {
+            throw new \Exception('English is compulsory for JAMB CBT');
+        }
+
+        if (count($subjectIds) !== $settings->subjects_count) {
+            throw new \Exception("You must select exactly {$settings->subjects_count} subjects");
+        }
+
+        if ($this->examRepository->findOngoingExam($userId)) {
             throw new \Exception('You already have an ongoing exam');
         }
 
-        $questionsPerSubject = 15;
-        $durationMinutes = 120;
+        return DB::transaction(function () use ($userId, $subjectIds, $settings) {
 
-        return DB::transaction(function () use (
-            $userId,
-            $subjectIds,
-            $questionsPerSubject,
-            $durationMinutes
-        ) {
-
-            // 1️⃣ Create Exam
             $exam = $this->examRepository->createExam([
                 'user_id' => $userId,
-                'total_questions' => count($subjectIds) * $questionsPerSubject,
-                'duration_minutes' => $durationMinutes,
                 'status' => 'ongoing',
                 'started_at' => now(),
+                'duration_minutes' => $settings->duration_minutes,
+                'total_questions' => count($subjectIds) * $settings->questions_per_subject,
             ]);
 
-            // 2️⃣ Start Exam Session
-            $this->examSessionService->startSession($exam);
-
-            // 3️⃣ Create Attempts + Questions
             foreach ($subjectIds as $subjectId) {
                 $this->examRepository->createAttempt($exam->id, $subjectId);
 
-                $questions = $this->examRepository
-                    ->getRandomQuestions($subjectId, $questionsPerSubject);
+                $questions = $this->examRepository->getRandomQuestions(
+                    $subjectId,
+                    $settings->questions_per_subject
+                );
 
                 foreach ($questions as $question) {
-                    $this->examRepository
-                        ->createExamAnswer($exam->id, $question->id);
+                    $this->examRepository->createExamAnswer(
+                        $exam->id,
+                        $question->id,
+                        $subjectId
+                    );
                 }
             }
 
-            // 4️⃣ Notify User
-            $exam->user->notify(
-                new ExamStartedNotification($exam->id)
-            );
+            $exam->user->notify(new ExamStartedNotification($exam->id));
 
             return $exam;
         });
     }
 
-    /**
-     * Get questions for an exam
-     */
+    // ---------------- GET EXAM QUESTIONS ----------------
     public function getExamQuestions(Exam $exam): array
     {
-        // Ownership check
-        if ($exam->user_id !== auth()->id()) {
-            throw new \Exception('Unauthorized exam access');
+        $this->assertOwnership($exam);
+
+        if ($exam->status !== 'ongoing') {
+            throw new \Exception('Exam already submitted');
         }
 
-        $session = $this->examSessionService->getSession($exam->id);
+        $answers = $this->examRepository->getExamQuestions($exam);
 
-        if (!$session || $session->status !== 'ongoing') {
-            throw new \Exception('Exam session is not active');
-        }
-
-        if (now()->greaterThan($session->expires_at)) {
-            throw new \Exception('Exam time has expired');
-        }
-
-        return [
-            'exam' => [
-                'id' => $exam->id,
-                'started_at' => $session->started_at,
-                'expires_at' => $session->expires_at,
-                'duration_minutes' => $exam->duration_minutes,
-            ],
-            'questions' => $this->examRepository
-                ->getExamQuestions($exam)
-                ->map(function ($answer) {
-                    return [
-                        'answer_id' => $answer->id,
-                        'question_id' => $answer->question->id,
-                        'subject' => $answer->question->subject->name,
-                        'question' => $answer->question->question,
-                        'options' => [
-                            'A' => $answer->question->option_a,
-                            'B' => $answer->question->option_b,
-                            'C' => $answer->question->option_c,
-                            'D' => $answer->question->option_d,
-                        ],
-                        'selected_option' => $answer->selected_option,
-                    ];
-                })
-                ->values(),
-        ];
-    }
-
-    /**
-     * Get ongoing exam for dashboard/resume
-     */
-    public function getOngoingExam(string $userId): ?array
-    {
-        $exam = $this->examRepository->getOngoingExam($userId);
-
-        if (!$exam) return null;
-
-        $session = $this->examSessionService->getSession($exam->id);
-
-        return [
-            'exam_id' => $exam->id,
-            'started_at' => $session?->started_at,
-            'expires_at' => $session?->expires_at,
-            'status' => $session?->status,
-        ];
-    }
-
-    /**
-     * Exam metadata (before start/payment)
-     */
-    public function getExamMeta(Exam $exam): array
-    {
-        return array_merge(
-            $this->examRepository->getExamMeta($exam),
-            [
-                'fee' => config('cbt.exam_fee'),
-                'instructions' => [
-                    'Do not refresh the page',
-                    'Exam auto-submits when time elapses',
-                    'Ensure stable internet connection',
+        return $answers->map(function ($answer) {
+            return [
+                'answer_id' => $answer->id,
+                'question_id' => $answer->question->id,
+                'subject' => $answer->question->subject->name,
+                'question' => $answer->question->question,
+                'options' => [
+                    'A' => $answer->question->option_a,
+                    'B' => $answer->question->option_b,
+                    'C' => $answer->question->option_c,
+                    'D' => $answer->question->option_d,
                 ],
-            ]
-        );
+                'selected_option' => $answer->selected_option,
+            ];
+        })->values()->toArray();
+    }
+
+    // ---------------- SAVE ANSWER ----------------
+    public function answerQuestion(string $examId, string $answerId, string $selectedOption)
+    {
+        $exam = $this->examRepository->findOngoingExam(auth()->id());
+        $this->assertOwnership($exam);
+
+        if ($exam->status !== 'ongoing') {
+            abort(400, 'Exam already submitted');
+        }
+
+        $examAnswer = $this->examRepository->getAnswer($answerId);
+        $examAnswer->update(['selected_option' => $selectedOption]);
+
+        return $examAnswer;
+    }
+
+    // ---------------- SUBMIT EXAM ----------------
+    public function submitExam(Exam $exam)
+    {
+        $this->assertOwnership($exam);
+
+        if ($exam->status !== 'ongoing') return;
+
+        DB::transaction(function () use ($exam) {
+            $answers = $this->examRepository->getExamQuestions($exam);
+
+            $totalScore = 0;
+            foreach ($answers as $ans) {
+                $correct = $ans->selected_option === $ans->question->correct_option;
+                $ans->update(['is_correct' => $correct]);
+                if ($correct) $totalScore++;
+            }
+
+            $exam->update([
+                'status' => 'submitted',
+                'submitted_at' => now(),
+                'total_score' => $totalScore
+            ]);
+
+            $exam->user->notify(new ExamSubmittedNotification($exam->id));
+        });
+    }
+
+    protected function assertOwnership(Exam $exam): void
+    {
+        if ($exam->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized exam access');
+        }
     }
 }

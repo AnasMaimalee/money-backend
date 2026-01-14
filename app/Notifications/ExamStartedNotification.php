@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 
@@ -10,27 +11,34 @@ class ExamStartedNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(
-        protected string $examId
-    ) {}
+    public string $examId;
 
-    /**
-     * Channels
-     */
-    public function via($notifiable): array
+    public function __construct(string $examId)
     {
-        return ['database'];
+        $this->examId = $examId;
     }
 
-    /**
-     * Database payload
-     */
-    public function toDatabase($notifiable): array
+    public function via($notifiable): array
+    {
+        return ['database', 'mail'];
+    }
+
+    public function toMail($notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('CBT Exam Started')
+            ->greeting('Hello ' . $notifiable->name)
+            ->line('Your CBT exam has started successfully.')
+            ->line('Exam ID: ' . $this->examId)
+            ->action('Continue Exam', url('/exams/' . $this->examId))
+            ->line('Best of luck!');
+    }
+
+    public function toArray($notifiable): array
     {
         return [
-            'title' => 'CBT Exam Started',
-            'message' => 'Your CBT exam has started. Ensure you complete it before time runs out.',
             'exam_id' => $this->examId,
+            'message' => 'Your CBT exam has started successfully!',
         ];
     }
 }

@@ -4,82 +4,110 @@ namespace App\Http\Controllers\Api\CBT;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
-use App\Services\CBT\ExamService;
 use Illuminate\Http\Request;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Services\CBT\ExamService;
+use App\Services\CBT\WalletPaymentService;
+use Illuminate\Support\Str;
+
 class ExamController extends Controller
 {
-    use AuthorizesRequests;
-
     public function __construct(
-        protected ExamService $examService
+        protected ExamService $service,
+        protected WalletPaymentService $walletService
     ) {}
 
-    public function start(Request $request)
+    // ---------------- START EXAM ----------------
+
+    public function start(Request $request, WalletPaymentService $walletService)
     {
-        $request->validate([
-            'subjects' => 'required|array|min:1|max:4',
-            'subjects.*' => 'exists:subjects,id',
+        $user = $request->user();
+
+        $examFee = (float) config('cbt.exam_fee');
+
+        if ($examFee <= 0) {
+            return response()->json([
+                'message' => 'Invalid exam fee configuration'
+            ], 500);
+        }
+
+        $exam = Exam::create([
+            'id' => Str::uuid(),
+            'user_id' => $user->id,
+            'total_questions' =>
+                config('cbt.subjects_count') * config('cbt.questions_per_subject'),
+            'duration_minutes' => config('cbt.duration_minutes'),
+            'fee' => $examFee,
+            'started_at' => now(),
         ]);
 
-        try {
-            $exam = $this->examService
-                ->startExam($request->user()->id, $request->subjects);
+        // 🔥 THIS was where your error came from
+        $walletService->debitExamFee(
+            $user->id,
+            $exam,
+            $examFee
+        );
 
-            return response()->json([
-                'message' => 'Exam started successfully',
-                'exam_id' => $exam->id,
-                'expires_at' => $exam->started_at
-                    ->addMinutes($exam->duration_minutes),
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => $e->getMessage()
-            ], 409);
-        }
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Exam started successfully',
+            'data' => $exam
+        ]);
     }
 
+
+    // ---------------- FETCH QUESTIONS ----------------
     public function show(Exam $exam)
     {
-        if ($exam->user_id !== auth()->id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        $questions = $this->service->getExamQuestions($exam);
 
-        if ($exam->status !== 'ongoing') {
-            return response()->json(['message' => 'Exam already submitted'], 400);
-        }
+        return response()->json([
+            'message' => 'Questions fetched',
+            'questions' => $questions
+        ]);
+    }
 
+    // ---------------- SAVE ANSWER ----------------
+    public function answer(Request $request, Exam $exam)
+    {
+        $request->validate([
+            'answer_id' => 'required|uuid',
+            'selected_option' => 'required|in:A,B,C,D'
+        ]);
+
+        $answer = $this->service->answerQuestion(
+            $exam->id,
+            $request->answer_id,
+            $request->selected_option
+        );
+
+        return response()->json([
+            'message' => 'Answer saved',
+            'answer' => $answer
+        ]);
+    }
+
+    // ---------------- SUBMIT EXAM ----------------
+    public function submit(Exam $exam)
+    {
+        $this->service->submitExam($exam);
+
+        return response()->json([
+            'message' => 'Exam submitted successfully'
+        ]);
+    }
+
+    // ---------------- HANDLE NETWORK FAILURE REFUND ----------------
+    public function refundIfUnsubmitted(Exam $exam)
+    {
         try {
-            return response()->json(
-                $this->examService->getExamQuestions($exam)
-            );
-
+            $this->walletService->refundIfUnsubmitted($exam);
+            return response()->json([
+                'message' => 'Exam fee refunded due to network issue'
+            ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
-            ], 410);
+                'message' => 'Failed to refund: ' . $e->getMessage()
+            ], 400);
         }
     }
-
-    public function ongoing(ExamService $service)
-    {
-        $exam = $service->getOngoingExam(auth()->id());
-
-        if (!$exam) {
-            return response()->json(['message' => 'No ongoing exam'], 404);
-        }
-
-        return response()->json($exam);
-    }
-
-    public function meta(Exam $exam, ExamService $service)
-    {
-        $this->authorize('view', $exam);
-
-        return response()->json(
-            $service->getExamMeta($exam)
-        );
-    }
-
 }

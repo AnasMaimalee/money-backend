@@ -13,6 +13,8 @@ class DatabaseSeeder extends Seeder
         // 1️⃣ Seed roles and permissions
         $this->call(RolePermissionSeeder::class);
         $this->call(ServiceSeeder::class);
+        $this->call(CbtSettingSeeder::class);
+        $this->call(SubjectSeeder::class);
         // 2️⃣ Create users and assign roles
         $superAdmin = User::factory()->create([
             'name' => 'Super Admin',

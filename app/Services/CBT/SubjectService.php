@@ -2,9 +2,8 @@
 
 namespace App\Services\CBT;
 
-use App\Repositories\CBT\SubjectRepository;
-use Illuminate\Support\Str;
 use App\Models\Subject;
+use App\Repositories\CBT\SubjectRepository;
 
 class SubjectService
 {
@@ -12,28 +11,36 @@ class SubjectService
         protected SubjectRepository $repository
     ) {}
 
-    // Get all active subjects
+    /**
+     * List all active subjects (for users & admins)
+     */
     public function listSubjects()
     {
         return $this->repository->allActive();
     }
 
-    // Get a single subject
+    /**
+     * Get single subject
+     */
     public function getSubject(string $id): Subject
     {
         return $this->repository->findById($id);
     }
 
-    // Create a new subject
+    /**
+     * Create new subject (admin)
+     */
     public function createSubject(array $data): Subject
     {
-        $data['id'] = (string) Str::uuid();
+        // Default status to true if not provided
         $data['status'] = $data['status'] ?? true;
 
         return $this->repository->create($data);
     }
 
-    // Update a subject
+    /**
+     * Update subject (admin)
+     */
     public function updateSubject(Subject $subject, array $data): Subject
     {
         return $this->repository->update($subject, $data);

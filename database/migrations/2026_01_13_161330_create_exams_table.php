@@ -12,6 +12,11 @@ return new class extends Migration {
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->integer('total_questions');
             $table->integer('duration_minutes');
+            // exams table
+            $table->decimal('fee', 10, 2)->default(0);
+            $table->boolean('fee_paid')->default(false); // fee has been successfully debited
+            $table->boolean('fee_refunded')->default(false); // fee refunded due to network issues
+
             $table->enum('status', ['ongoing', 'submitted'])->default('ongoing');
             $table->timestamp('started_at')->nullable();
             $table->timestamp('submitted_at')->nullable();

@@ -7,7 +7,7 @@ return [
 
     'allowed_origins' => [
         'http://localhost:3000',             // local dev
-        'https://argued-due-choosing-covered.trycloudflare.com',
+        'https://kids-themselves-sunset-taxes.trycloudflare.com',
         'http://172.24.24.69:3000'
     ],
 

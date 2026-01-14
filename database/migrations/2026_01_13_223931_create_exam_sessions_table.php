@@ -15,6 +15,7 @@ return new class extends Migration {
 
             $table->timestamp('starts_at');
             $table->timestamp('ends_at');
+            $table->integer('time_used_seconds')->nullable();
 
             $table->timestamp('submitted_at')->nullable();
             $table->boolean('is_submitted')->default(false);
