@@ -117,6 +117,10 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(\App\Models\LoginAudit::class);
     }
+    public function exams()
+    {
+        return $this->hasMany(\App\Models\Exam::class);
+    }
 
 
 }

@@ -29,6 +29,22 @@ use App\Http\Controllers\Api\Auth\PasswordResetController;
 use App\Http\Controllers\Api\Auth\EmailVerificationController;
 use App\Http\Controllers\Api\Profile\ProfileController;
 
+/*
+ * CBT Controller
+ * */
+
+use App\Http\Controllers\Api\CBT\ExamController;
+use App\Http\Controllers\Api\CBT\AnswerController;
+use App\Http\Controllers\Api\CBT\SubmitExamController;
+use App\Http\Controllers\Api\CBT\ResultController;
+use App\Http\Controllers\Api\CBT\SuperAdmin\QuestionUploadController;
+use App\Http\Controllers\Api\CBT\SuperAdmin\QuestionBankController;
+use App\Http\Controllers\Api\CBT\WalletPaymentController;
+use App\Http\Controllers\Api\CBT\ExamTimerController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\CBT\SubjectController;
+
+
 /* |--------------------------------------------------------------------------
  | Public Auth Routes
  |-------------------------------------------------------------------------- */
@@ -253,3 +269,81 @@ Route::get('/download-storage/{path}', function (string $path) {
         abort(404, 'Download failed');
     }
 })->where('path', '.*');
+
+
+/*
+|--------------------------------------------------------------------------
+| CBT Routes
+|--------------------------------------------------------------------------
+*/
+
+// ===================== USER ROUTES =====================
+
+// Admin routes
+Route::middleware(['auth:api', 'role:superadmin'])
+    ->prefix('superadmin/cbt')
+    ->group(function () {
+        Route::post('/subjects', [SubjectController::class, 'store']); // create subject
+        Route::put('/subjects/{subject}', [SubjectController::class, 'update']); // edit subject
+    });
+
+// Both admin and user can view subjects
+Route::middleware(['auth:api'])
+    ->prefix('cbt')
+    ->group(function () {
+        Route::get('/subjects', [SubjectController::class, 'index']); // list subjects
+        Route::get('/subjects/{subject}', [SubjectController::class, 'show']); // optional: view single subject
+    });
+
+Route::middleware(['auth:api', 'role:user'])->prefix('user/cbt')->group(function () {
+    // Start / show / submit exam
+    Route::post('/exam/start', [ExamController::class, 'start']);
+    Route::get('/exam/{exam}', [ExamController::class, 'show']);
+    Route::post('/exam/{exam}/submit', [SubmitExamController::class, 'submit']);
+    Route::get('/results/{exam}', [ResultController::class, 'show']);
+});
+
+// ===================== SUPERADMIN ROUTES =====================
+Route::middleware(['auth:api', 'role:superadmin'])->prefix('superadmin/cbt')->group(function () {
+    // Question management
+    Route::post('/questions/upload', [QuestionUploadController::class, 'upload']);
+    Route::get('/questions', [QuestionBankController::class, 'index']);
+    Route::get('/questions/{questionId}/preview', [QuestionBankController::class, 'preview']);
+});
+
+// ===================== CBT EXAM ROUTES =====================
+
+// Answering questions (requires active exam session)
+Route::middleware(['auth:api', 'role:user', 'verify.exam.session'])
+    ->prefix('cbt')
+    ->group(function () {
+        Route::post('/exam/{exam}/question/{question}/answer', [AnswerController::class, 'save']);
+    });
+
+// Wallet check / payment before exam
+Route::middleware(['auth:api', 'role:user'])
+    ->prefix('cbt')
+    ->group(function () {
+        Route::get('/exam/{exam}/wallet-check', [WalletPaymentController::class, 'check']);
+        Route::post('/exam/{exam}/pay-wallet', [WalletPaymentController::class, 'payAndStart']);
+    });
+
+// Auto-submit / heartbeat (requires active exam session)
+Route::middleware(['auth:api', 'verify.exam.session'])
+    ->prefix('cbt')
+    ->group(function () {
+        Route::post('/exam/{exam}/auto-submit', [ExamTimerController::class, 'checkAndSubmit']);
+        Route::post('/exam/{exam}/heartbeat', [ExamTimerController::class, 'heartbeat']);
+    });
+
+// Exam status / resume / metadata / results summary
+Route::middleware(['auth:api', 'role:user'])
+    ->prefix('cbt')
+    ->group(function () {
+        Route::get('/exam/ongoing', [ExamController::class, 'ongoing']);
+        Route::get('/exam/{exam}/meta', [ExamController::class, 'meta']);
+        Route::get('/results/{exam}/summary', [ResultController::class, 'summary']);
+    });
+
+// ===================== NOTIFICATIONS =====================
+Route::middleware('auth:api')->get('/notifications', [NotificationController::class, 'index']);
