@@ -8,6 +8,8 @@ use App\Repositories\CBT\ExamRepository;
 use App\Services\CBT\CbtSettingService;
 use App\Notifications\ExamStartedNotification;
 use App\Notifications\ExamSubmittedNotification;
+use Illuminate\Auth\Access\AuthorizationException;
+use RuntimeException;
 
 class ExamService
 {
@@ -16,22 +18,17 @@ class ExamService
         protected CbtSettingService $cbtSettingService
     ) {}
 
-    // ---------------- START EXAM ----------------
+    /* =====================================================
+     | START EXAM
+     ===================================================== */
     public function startExam(string $userId, array $subjectIds): Exam
     {
         $settings = $this->cbtSettingService->getSettings();
 
-        // English compulsory
-        if (!$this->examRepository->subjectExistsBySlug($subjectIds, 'english-language')) {
-            throw new \Exception('English is compulsory for JAMB CBT');
-        }
-
-        if (count($subjectIds) !== $settings->subjects_count) {
-            throw new \Exception("You must select exactly {$settings->subjects_count} subjects");
-        }
+        $this->validateSubjectSelection($subjectIds, $settings->subjects_count);
 
         if ($this->examRepository->findOngoingExam($userId)) {
-            throw new \Exception('You already have an ongoing exam');
+            throw new RuntimeException('You already have an ongoing exam');
         }
 
         return DB::transaction(function () use ($userId, $subjectIds, $settings) {
@@ -39,25 +36,18 @@ class ExamService
                 'user_id' => $userId,
                 'status' => 'ongoing',
                 'started_at' => now(),
+                'ends_at' => now()->addMinutes($settings->duration_minutes),
                 'duration_minutes' => $settings->duration_minutes,
                 'total_questions' => count($subjectIds) * $settings->questions_per_subject,
             ]);
 
+
             foreach ($subjectIds as $subjectId) {
-                $this->examRepository->createAttempt($exam->id, $subjectId);
-
-                $questions = $this->examRepository->getRandomQuestions(
-                    $subjectId,
-                    $settings->questions_per_subject
+                $this->seedSubjectQuestions(
+                    exam: $exam,
+                    subjectId: $subjectId,
+                    limit: $settings->questions_per_subject
                 );
-
-                foreach ($questions as $question) {
-                    $this->examRepository->createExamAnswer(
-                        $exam->id,
-                        $question->id,
-                        $subjectId
-                    );
-                }
             }
 
             $exam->user->notify(new ExamStartedNotification($exam->id));
@@ -66,57 +56,51 @@ class ExamService
         });
     }
 
-    // ---------------- GET EXAM QUESTIONS ----------------
+    /* =====================================================
+     | GET EXAM QUESTIONS
+     ===================================================== */
     public function getExamQuestions(Exam $exam): array
     {
-        $this->assertOwnership($exam);
+        $this->authorizeExam($exam);
+        $this->ensureExamIsOngoing($exam);
 
-        if ($exam->status !== 'ongoing') {
-            throw new \Exception('Exam already submitted');
-        }
-
-        $answers = $this->examRepository->getExamQuestions($exam);
-
-        return $answers->map(function ($answer) {
-            return [
-                'answer_id' => $answer->id,
-                'question_id' => $answer->question->id,
-                'subject' => $answer->question->subject->name,
-                'question' => $answer->question->question,
-                'options' => [
-                    'A' => $answer->question->option_a,
-                    'B' => $answer->question->option_b,
-                    'C' => $answer->question->option_c,
-                    'D' => $answer->question->option_d,
-                ],
-                'selected_option' => $answer->selected_option,
-            ];
-        })->values()->toArray();
+        return $this->examRepository
+            ->getExamQuestions($exam)
+            ->map(fn ($answer) => $this->transformQuestion($answer))
+            ->values()
+            ->toArray();
     }
 
-    // ---------------- SAVE ANSWER ✅ FIXED ----------------
-    public function answerQuestion(string $examId, string $answerId, string $selectedOption)
-    {
-        // ✅ FIX: Load exam by specific ID, not findOngoingExam()
-        $exam = Exam::findOrFail($examId);
-        $this->assertOwnership($exam);
+    /* =====================================================
+     | SAVE ANSWER
+     ===================================================== */
+    public function answerQuestion(
+        Exam $exam,
+        string $answerId,
+        string $selectedOption
+    ) {
+        $this->authorizeExam($exam);
+        $this->ensureExamIsOngoing($exam);
 
-        if ($exam->status !== 'ongoing') {
-            abort(400, 'Exam already submitted');
-        }
+        $answer = $this->examRepository->getAnswerForExam(
+            examId: $exam->id,
+            answerId: $answerId
+        );
 
-        $examAnswer = $this->examRepository->getAnswer($answerId);
-        $examAnswer->update(['selected_option' => $selectedOption]);
+        $answer->update([
+            'selected_option' => $selectedOption
+        ]);
 
-        return $examAnswer;
+        return $answer;
     }
 
-    // ---------------- SUBMIT EXAM ✅ FIXED ----------------
-    public function submitExam(Exam $exam)
+    /* =====================================================
+     | SUBMIT EXAM
+     ===================================================== */
+    public function submitExam(Exam $exam): void
     {
-        $this->assertOwnership($exam);
+        $this->authorizeExam($exam);
 
-        // ✅ Early return is fine here - but transaction ensures update happens
         if ($exam->status !== 'ongoing') {
             return;
         }
@@ -124,30 +108,96 @@ class ExamService
         DB::transaction(function () use ($exam) {
             $answers = $this->examRepository->getExamQuestions($exam);
 
-            $totalScore = 0;
-            foreach ($answers as $ans) {
-                $correct = $ans->selected_option === $ans->question->correct_option;
-                $ans->update(['is_correct' => $correct]);
+            $score = 0;
+
+            foreach ($answers as $answer) {
+                $correct = $answer->selected_option === $answer->question->correct_option;
+
+                $answer->update(['is_correct' => $correct]);
+
                 if ($correct) {
-                    $totalScore++;
+                    $score++;
                 }
             }
 
-            // ✅ This ALWAYS runs and sets status to 'submitted'
             $exam->update([
-                'status' => 'submitted',
-                'submitted_at' => now(),
-                'total_score' => $totalScore
+                'status'        => 'submitted',
+                'submitted_at'  => now(),
+                'total_score'   => $score
             ]);
 
             $exam->user->notify(new ExamSubmittedNotification($exam->id));
         });
     }
 
-    protected function assertOwnership(Exam $exam): void
+    /* =====================================================
+     | INTERNAL HELPERS
+     ===================================================== */
+
+    protected function validateSubjectSelection(array $subjectIds, int $requiredCount): void
+    {
+        if (
+            !$this->examRepository->subjectExistsBySlug($subjectIds, 'english-language')
+        ) {
+            throw new RuntimeException('English is compulsory for JAMB CBT');
+        }
+
+        if (count($subjectIds) !== $requiredCount) {
+            throw new RuntimeException(
+                "You must select exactly {$requiredCount} subjects"
+            );
+        }
+    }
+
+    protected function seedSubjectQuestions(
+        Exam $exam,
+        string $subjectId,
+        int $limit
+    ): void {
+        $this->examRepository->createAttempt($exam->id, $subjectId);
+
+        $questions = $this->examRepository
+            ->getRandomQuestions($subjectId, $limit);
+
+        foreach ($questions as $question) {
+            $this->examRepository->createExamAnswer(
+                $exam->id,
+                $question->id,
+                $subjectId
+            );
+        }
+    }
+
+    protected function transformQuestion($answer): array
+    {
+        $q = $answer->question;
+
+        return [
+            'answer_id'       => $answer->id,
+            'question_id'     => $q->id,
+            'subject'         => $q->subject->name,
+            'question'        => $q->question,
+            'options'         => [
+                'A' => $q->option_a,
+                'B' => $q->option_b,
+                'C' => $q->option_c,
+                'D' => $q->option_d,
+            ],
+            'selected_option' => $answer->selected_option,
+        ];
+    }
+
+    protected function authorizeExam(Exam $exam): void
     {
         if ($exam->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized exam access');
+            throw new AuthorizationException('Unauthorized exam access');
+        }
+    }
+
+    protected function ensureExamIsOngoing(Exam $exam): void
+    {
+        if ($exam->status !== 'ongoing') {
+            throw new RuntimeException('Exam already submitted');
         }
     }
 }

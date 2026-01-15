@@ -341,6 +341,11 @@ class MeController extends Controller
                             'route' => '/superadmin/cbt/analytics',
                             'icon' => 'BarChartOutlined',
                         ],
+                        [
+                            'label' => 'Setting',
+                            'route' => '/superadmin/cbt/setting',
+                            'icon' => 'SettingOutlined',
+                        ],
                     ],
                 ],
                 [

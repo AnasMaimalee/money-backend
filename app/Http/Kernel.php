@@ -46,4 +46,16 @@ class Kernel extends HttpKernel
         // ✅ Your custom CBT middleware
         'verify.exam.session' => \App\Http\Middleware\VerifyExamSession::class,
     ];
+
+
+    protected $commands = [
+        \App\Console\Commands\AutoSubmitExpiredExams::class,
+    ];
+    protected function schedule(\Illuminate\Console\Scheduling\Schedule $schedule)
+    {
+        $schedule->command('cbt:auto-submit-expired-exams')
+            ->everyMinute()
+            ->withoutOverlapping();
+    }
+
 }

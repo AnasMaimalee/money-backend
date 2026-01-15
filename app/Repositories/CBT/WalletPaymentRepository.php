@@ -25,7 +25,7 @@ class WalletPaymentRepository
     }
 
     /**
-     * Debit wallet safely (row locked)
+     * Debit wallet safely (row locked) - ✅ 4 PARAMETERS
      */
     public function debitWallet(
         string $userId,
@@ -56,12 +56,13 @@ class WalletPaymentRepository
     }
 
     /**
-     * Credit wallet (refund)
+     * Credit wallet safely (row locked) - ✅ NOW 4 PARAMETERS (aligned!)
      */
     public function creditWallet(
         string $userId,
         float $amount,
-        string $reference
+        string $reference,
+        string $groupReference  // ✅ ADDED
     ): WalletTransaction {
         $wallet = Wallet::where('user_id', $userId)
             ->lockForUpdate()
@@ -80,7 +81,8 @@ class WalletPaymentRepository
             'balance_before' => $before,
             'balance_after' => $after,
             'reference' => $reference,
-            'description' => 'CBT Exam Fee Refund',
+            'group_reference' => $groupReference,  // ✅ ADDED
+            'description' => 'CBT Exam Fee Credit', // ✅ Dynamic description
         ]);
     }
 }

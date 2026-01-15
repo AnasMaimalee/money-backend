@@ -270,20 +270,31 @@ Route::get('/download-storage/{path}', function (string $path) {
         abort(404, 'Download failed');
     }
 })->where('path', '.*');
-
-
 /*
 |--------------------------------------------------------------------------
-| CBT Routes
+| CBT Routes (Clean & Unified)
 |--------------------------------------------------------------------------
 */
 
-// ===================== USER ROUTES =====================
+Route::middleware('auth:api')->prefix('cbt')->group(function () {
 
-// -------------------- SUPERADMIN ROUTES --------------------
-Route::middleware(['auth:api', 'role:superadmin'])
-    ->prefix('superadmin/cbt')
-    ->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | PUBLIC / SHARED
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/subjects', [SubjectController::class, 'index']);
+    Route::get('/subjects/{subject}', [SubjectController::class, 'show']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUPERADMIN (MANAGEMENT)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:superadmin')->prefix('superadmin')->group(function () {
 
         // Subjects
         Route::post('/subjects', [SubjectController::class, 'store']);
@@ -292,81 +303,60 @@ Route::middleware(['auth:api', 'role:superadmin'])
         // Questions
         Route::post('/questions/upload', [QuestionUploadController::class, 'upload']);
         Route::get('/questions', [QuestionBankController::class, 'index']);
-        Route::get('/questions/{questionId}/preview', [QuestionBankController::class, 'preview']);
+        Route::get('/questions/{question}/preview', [QuestionBankController::class, 'preview']);
+
+        // Leaderboard (global)
+        Route::get('/leaderboard', [LeaderboardController::class, 'index']);
     });
 
-// -------------------- USER & ADMIN VIEW --------------------
-Route::middleware(['auth:api'])
-    ->prefix('cbt')
-    ->group(function () {
-        Route::get('/subjects', [SubjectController::class, 'index']);
-        Route::get('/subjects/{subject}', [SubjectController::class, 'show']);
-    });
+    /*
+    |--------------------------------------------------------------------------
+    | USER CBT EXAM FLOW
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:user')->prefix('user')->group(function () {
 
-// -------------------- USER CBT EXAM --------------------
-Route::middleware(['auth:api', 'role:user'])->prefix('user/cbt')->group(function () {
+        // ---------------- EXAM LIFECYCLE ----------------
+        Route::post('/exam/start', [ExamController::class, 'start']);
+        Route::get('/exam/ongoing', [ExamController::class, 'ongoingExams']);
+        Route::get('/exam/{exam}', [ExamController::class, 'show']);
+        Route::get('/exam/{exam}/meta', [ExamController::class, 'meta']);
 
-    // Start / show / submit exam
-    Route::post('/exam/start', [ExamController::class, 'start']);
-    Route::get('/exam/{exam}', [ExamController::class, 'show']);
-    Route::post('/exam/{exam}/submit', [SubmitExamController::class, 'submit']);
+        Route::post('/exam/{exam}/submit', [ExamController::class, 'submit']);
+        Route::post('/exam/{exam}/auto-submit', [ExamController::class, 'autoSubmitExam']);
 
-    // Results
-    Route::get('/results/{exam}', [ResultController::class, 'show']);
-    Route::get('/results/{exam}/summary', [ResultController::class, 'summary']);
-    Route::get('/results/{exam}/pdf', [ResultController::class, 'downloadResult']);
+        // ---------------- ANSWERS ----------------
+        Route::middleware('verify.exam.session')->group(function () {
+            Route::post(
+                '/exam/{exam}/answer/{answer}',
+                [ExamController::class, 'submitAnswer']
+            );
+        });
 
-    // Leaderboard
-    Route::get('/leaderboard', [LeaderboardController::class, 'selfRank']);
-});
+        // ---------------- RESULTS ----------------
+        Route::get('/results/{exam}', [ResultController::class, 'show']);
+        Route::get('/results/{exam}/summary', [ResultController::class, 'summary']);
+        Route::get('/results/{exam}/pdf', [ResultController::class, 'downloadResult']);
 
-// -------------------- CBT ANSWERS --------------------
-Route::middleware(['auth:api', 'role:user', 'verify.exam.session'])
-    ->prefix('cbt')
-    ->group(function () {
-        Route::post('/exam/{exam}/question/{question}/answer', [AnswerController::class, 'save']);
-    });
+        // ---------------- USER LEADERBOARD ----------------
+        Route::get('/leaderboard', [LeaderboardController::class, 'selfRank']);
 
-// -------------------- WALLET CHECK / PAYMENT --------------------
-Route::middleware(['auth:api', 'role:user'])
-    ->prefix('cbt')
-    ->group(function () {
+        // ---------------- WALLET ----------------
         Route::get('/exam/{exam}/wallet-check', [WalletPaymentController::class, 'check']);
         Route::post('/exam/{exam}/pay-wallet', [WalletPaymentController::class, 'payAndStart']);
+
+        // ---------------- REFUND ----------------
+        Route::post('/exam/{exam}/refund', [ExamController::class, 'refundIfUnsubmitted']);
     });
 
-// -------------------- AUTO-SUBMIT / HEARTBEAT --------------------
-Route::middleware(['auth:api', 'verify.exam.session'])
-    ->prefix('cbt')
-    ->group(function () {
-        Route::post('/exam/{exam}/auto-submit', [ExamTimerController::class, 'checkAndSubmit']);
+    /*
+    |--------------------------------------------------------------------------
+    | TIMER / HEARTBEAT (SECURED)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['role:user', 'verify.exam.session'])->group(function () {
         Route::post('/exam/{exam}/heartbeat', [ExamTimerController::class, 'heartbeat']);
+        Route::post('/exam/{exam}/check-time', [ExamTimerController::class, 'checkAndSubmit']);
     });
 
-// -------------------- ONGOING EXAM / META --------------------
-Route::middleware(['auth:api', 'role:user'])
-    ->prefix('cbt')
-    ->group(function () {
-        Route::get('/exam/ongoing', [ExamController::class, 'ongoing']);
-        Route::get('/exam/{exam}/meta', [ExamController::class, 'meta']);
-        Route::get('/exam/{exam}/questions', [ExamController::class, 'show']);
-        Route::post('/exam/{exam}/answer/{answer}', [ExamController::class, 'submitAnswer']);
-        Route::post('/exam/{exam}/submit', [ExamController::class, 'submit']);
-    });
-
-// -------------------- LEADERBOARD --------------------
-Route::middleware(['auth:api', 'role:superadmin'])
-    ->prefix('superadmin/cbt')
-    ->group(function () {
-        Route::get('/leaderboard', [LeaderboardController::class, 'index']); // full leaderboard
-    });
-
-// -------------------- NOTIFICATIONS --------------------
-Route::middleware('auth:api')->get('/notifications', [NotificationController::class, 'index']);
-Route::patch('/notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']
-);
-
-
-Route::middleware('auth:api')->group(function () {
-    Route::get('/cbt/leaderboard', [RankingController::class, 'leaderboard']);
 });

@@ -12,7 +12,7 @@ class CbtSettingSeeder extends Seeder
     {
         CbtSetting::create([
             'subjects_count' => 4,
-            'questions_per_subject' => 15,
+            'questions_per_subject' => 25,
             'duration_minutes' => 120,
             'exam_fee' => 1000,
         ]);

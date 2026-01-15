@@ -9,7 +9,7 @@ use App\Notifications\WalletDebitedNotification;
 use Illuminate\Support\Facades\DB;
 use Exception;
 use Illuminate\Support\Str;
-
+use Illuminate\Http\Request;
 class WalletPaymentService
 {
     public function __construct(protected WalletPaymentRepository $repository) {}
@@ -25,14 +25,11 @@ class WalletPaymentService
 
     public function debitExamFee(string $userId, Exam $exam, float $amount)
     {
-        // 🔒 Prevent double payment
         if ($exam->fee_paid) {
             throw new Exception('Exam fee already paid');
         }
 
         return DB::transaction(function () use ($userId, $exam, $amount) {
-
-            // ✅ Always cast to float
             $balance = (float) $this->repository->getUserBalance($userId);
             $amount  = (float) $amount;
 
@@ -40,29 +37,40 @@ class WalletPaymentService
                 throw new Exception('Insufficient wallet balance');
             }
 
-            // 🧾 Idempotency reference (one debit per exam)
             $groupReference = 'exam-fee-' . $exam->id;
 
-            // 🔁 Prevent duplicate transaction
             if ($this->repository->transactionExists($groupReference)) {
                 throw new Exception('Exam fee already debited');
             }
 
-            // 💸 Debit wallet
-            $transaction = $this->repository->debitWallet(
-                userId: $userId,
-                amount: $amount,
-                reference: $exam->id,
-                groupReference: $groupReference
+            // 💸 1. DEBIT STUDENT WALLET (POSITIONAL args)
+            $studentTransaction = $this->repository->debitWallet(
+                $userId,
+                $amount,
+                'debit-' . $exam->id,
+                $groupReference  // ✅ 4th param
             );
 
-            // ✅ Mark exam as paid
+
+            // ✅ 2. MARK EXAM AS PAID
             $exam->update([
                 'fee_paid' => true,
                 'fee' => $amount
             ]);
 
-            // 🔔 Notify user (non-blocking)
+            // 👑 3. DYNAMIC SUPERADMIN CREDIT
+            $superadmin = User::whereHas('roles', function ($query) {
+                $query->where('name', 'superadmin');
+            })->first();
+
+            $superadminTransaction = $this->repository->creditWallet(
+                $superadmin->id,
+                $amount,
+                'credit-exam-' . $exam->id,
+                $groupReference  // ✅ 4th param - NOW WORKS!
+            );
+
+            // 🔔 4. Notify student
             try {
                 $user = User::findOrFail($userId);
                 $user->notify(new WalletDebitedNotification(
@@ -71,19 +79,17 @@ class WalletPaymentService
                     referenceId: $exam->id
                 ));
             } catch (\Throwable $e) {
-                // Log but do NOT rollback payment
-                logger()->warning('Wallet debit notification failed', [
-                    'exam_id' => $exam->id,
-                    'error' => $e->getMessage()
-                ]);
+                logger()->warning('Student notification failed', ['exam_id' => $exam->id]);
             }
 
             return [
-                'transaction' => $transaction,
-                'balance_after' => $transaction->balance_after
+                'student_transaction' => $studentTransaction,
+                'superadmin_transaction' => $superadminTransaction,
+                'balance_after' => $studentTransaction->balance_after
             ];
         });
     }
+
 
 
     // Refund exam fee if exam not submitted
@@ -104,5 +110,42 @@ class WalletPaymentService
                 ));
             });
         }
+    }
+
+    public function ongoingExams(Request $request)
+    {
+        $user = $request->user();
+
+        $ongoingExams = Exam::where('user_id', $user->id)
+            ->where('status', 'ongoing')
+            ->with(['attempts.subject:id,name'])
+            ->orderBy('started_at', 'desc')
+            ->get()
+            ->map(function ($exam) {
+                $started = $exam->started_at;
+                $duration = $exam->duration_minutes * 60;
+                $elapsed = now()->diffInSeconds($started);
+                $remaining = max(0, $duration - $elapsed);
+
+                return [
+                    'exam_id' => $exam->id,
+                    'started_at' => $exam->started_at->toISOString(),
+                    'duration_minutes' => $exam->duration_minutes,
+                    'total_questions' => $exam->total_questions,
+                    'subjects' => $exam->attempts->pluck('subject.name')->toArray(),
+                    'time_remaining_seconds' => $remaining,
+                    'expired' => $remaining <= 0,
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Ongoing exams retrieved',
+            'data' => [
+                'ongoing_exams' => $ongoingExams,
+                'has_ongoing_exam' => $ongoingExams->isNotEmpty(),
+                'count' => $ongoingExams->count(),
+            ]
+        ]);
     }
 }
