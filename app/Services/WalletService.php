@@ -42,7 +42,7 @@ class WalletService
        LOW-LEVEL LEDGER (PROTECTED)
     =============================== */
 
-    protected function credit(User $user, float $amount, string $description, string $groupReference): WalletTransaction
+    public function credit(User $user, float $amount, string $description, string $groupReference): WalletTransaction
     {
         return DB::transaction(function () use ($user, $amount, $description, $groupReference) {
             $wallet = $this->walletRepo->getByUserIdForUpdate($user->id);

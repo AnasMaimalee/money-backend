@@ -30,24 +30,21 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * Configure the rate limiters for the application.
      */
-    protected function configureRateLimiting(): void
+    protected function configureRateLimiting()
     {
-        /**
-         * LOGIN RATE LIMIT
-         * Prevent brute force login
-         */
         RateLimiter::for('login', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });
 
-        /**
-         * WALLET / TRANSACTION RATE LIMIT
-         * Protect real money operations
-         */
         RateLimiter::for('wallet', function (Request $request) {
-            return Limit::perMinute(10)->by(
-                $request->user()?->id ?: $request->ip()
-            );
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // ✅ FIXED: Paystack webhook limiter (60/min per IP - Paystack sends retries)
+        RateLimiter::for('paystack-webhook', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
         });
     }
+
+
 }

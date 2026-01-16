@@ -51,7 +51,7 @@ use App\Http\Controllers\Api\CBT\SuperAdmin\AdminCbtController;
 Route::prefix('auth')->group(function () {
     Route::post('/register', [MeController::class, 'register']);
     Route::post('/login', [MeController::class, 'login'])
-        ->middleware('throttle:login');
+        ->middleware('throttle:5,1');
 });
 
 // Password Reset
@@ -92,7 +92,8 @@ Route::middleware(['auth:api', 'role:superadmin'])->group(function () {
 /* |--------------------------------------------------------------------------
  | Paystack Webhook (Public - No Auth)
  |-------------------------------------------------------------------------- */
-Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
+Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1'); // 60/min generic
 
 /* |--------------------------------------------------------------------------
  | Authenticated Routes

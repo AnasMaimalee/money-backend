@@ -2,60 +2,71 @@
 
 namespace App\Http\Controllers\Api\Webhooks;
 
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Services\Paystack\PaystackWebhookService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 
 class PaystackWebhookController extends Controller
 {
     public function handle(Request $request, PaystackWebhookService $service)
     {
-        $rawBody = $request->getContent();
+        // 🚨 STEP 1: CRITICAL - Get UNMODIFIED raw body BEFORE Laravel touches it
+        $rawBody = file_get_contents('php://input');
 
-        // LOUD HIT LOG - keep this forever
-        Log::emergency('!!! WEBHOOK CONTROLLER WAS HIT !!!', [
-            'time' => now()->toDateTimeString(),
-            'ip' => $request->ip(),
-            'url' => $request->fullUrl(),
-            'signature' => $request->header('x-paystack-signature') ?? 'missing',
-            'body_preview' => substr($rawBody, 0, 300) . '...',
+        // 🚨 STEP 2: Log raw body for debugging (REMOVE IN PRODUCTION)
+        Log::debug('🔍 RAW PAYSTACK BODY', ['body' => $rawBody]);
+
+        // 🚨 STEP 3: Get signature
+        $signature = $request->header('x-paystack-signature');
+        Log::debug('🔍 PAYSTACK HEADERS', [
+            'signature' => $signature,
+            'secret' => substr(config('services.paystack.secret_key'), 0, 10) . '...'
         ]);
 
-        if (!$request->isMethod('post')) {
-            return response()->json(['status' => 'wrong_method'], 405);
+        if (!$signature) {
+            return response()->json(['status' => 'missing_signature'], Response::HTTP_UNAUTHORIZED);
         }
 
-        // TEMPORARILY DISABLE SIGNATURE CHECK FOR DEBUGGING
-        // REMOVE THIS IN PRODUCTION AFTER CONFIRMING IT WORKS!
-        Log::warning('SIGNATURE VERIFICATION SKIPPED FOR DEBUGGING - ENABLE BEFORE LIVE!');
-        // $signature = $request->header('x-paystack-signature');
-        // $expected = hash_hmac('sha512', $rawBody, config('services.paystack.secret'));
-        // if (!$signature || $signature !== $expected) {
-        //     Log::error('Signature mismatch', [...]);
-        //     abort(401);
-        // }
-
-        $data = json_decode($rawBody, true);
-
-        if (!$data || !isset($data['event'])) {
-            Log::warning('Invalid payload', ['payload' => $rawBody]);
-            return response()->json(['status' => 'invalid_payload'], 400);
+        // 🚨 STEP 4: VERIFY - Use EXACT Paystack secret from .env
+        $secret = config('services.paystack.secret_key');
+        if (!$secret || $secret === 'sk_test_xxxxxxxx') {
+            Log::error('❌ PAYSTACK SECRET NOT SET IN .env');
+            return response()->json(['status' => 'config_error'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+
+        $computedSignature = hash_hmac('sha512', $rawBody, $secret);
+
+        Log::debug('🔍 SIGNATURE CHECK', [
+            'received' => substr($signature, 0, 32) . '...',
+            'computed' => substr($computedSignature, 0, 32) . '...',
+            'match' => hash_equals($computedSignature, $signature)
+        ]);
+
+        if (!hash_equals($computedSignature, $signature)) {
+            Log::error('❌ INVALID PAYSTACK SIGNATURE', [
+                'ip' => $request->ip(),
+                'received' => $signature,
+                'computed' => $computedSignature,
+            ]);
+            return response()->json(['status' => 'invalid_signature'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // ✅ STEP 5: SAFE TO PROCESS
+        $payload = json_decode($rawBody, true);
 
         try {
-            Log::info('Calling webhook service', ['event' => $data['event']]);
-            $service->handle($data);
-            Log::info('Webhook processed successfully', ['event' => $data['event']]);
-        } catch (\Exception $e) {
-            Log::critical('Webhook processing CRASHED', [
-                'event' => $data['event'] ?? 'unknown',
+            $service->handle($payload);
+            Log::info('✅ WALLET CREDITED', ['event' => $payload['event'] ?? 'unknown']);
+            return response()->json(['status' => 'success'], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            Log::error('💥 WEBHOOK PROCESSING FAILED', [
+                'event' => $payload['event'] ?? 'unknown',
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return response()->json(['status' => 'error'], 500);
+            return response()->json(['status' => 'processing_failed'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        return response()->json(['status' => 'ok']);
     }
 }
