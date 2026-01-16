@@ -2,36 +2,35 @@
 
 namespace App\Repositories\PinBinding;
 
-use App\Http\Resources\PinBindingRequestResource;
-use App\Models\JambPinBindingRequest;
+use App\Http\Resources\JambPinBindingRequestResource;
 
 class PinBindingRepository
 {
     public function create(array $data)
     {
-        return PinBindingRequestResource::create($data);
+        return JambPinBindingRequestResource::create($data);
     }
 
     public function find(string $id)
     {
-        return PinBindingRequestResource::findOrFail($id);
+        return JambPinBindingRequestResource::findOrFail($id);
     }
 
     public function userRequests(string $userId)
     {
-        return PinBindingRequestResource::where('user_id', $userId)
+        return JambPinBindingRequestResource::where('user_id', $userId)
             ->latest()
             ->get();
     }
 
     public function pending()
     {
-        return PinBindingRequestResource::where('status', 'pending')->get();
+        return JambPinBindingRequestResource::where('status', 'pending')->get();
     }
 
     public function allWithRelations()
     {
-        return PinBindingRequestResource::with([
+        return JambPinBindingRequestResource::with([
             'user',
             'service',
             'takenBy',
