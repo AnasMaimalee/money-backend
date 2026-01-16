@@ -353,8 +353,8 @@ class MeController extends Controller
                             'icon' => 'TrophyOutlined',
                         ],
                         [
-                            'label' => 'Setting',
-                            'route' => '/superadmin/cbt/setting',
+                            'label' => 'CBT Setting',
+                            'route' => '/superadmin/cbt/cbt-setting',
                             'icon' => 'SettingOutlined',
                         ],
                     ],
