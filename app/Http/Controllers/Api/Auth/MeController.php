@@ -348,6 +348,11 @@ class MeController extends Controller
                             'icon' => 'BarChartOutlined',
                         ],
                         [
+                            'label' => 'Leader Board',
+                            'route' => '/superadmin/cbt/leader-board',
+                            'icon' => 'TrophyOutlined',
+                        ],
+                        [
                             'label' => 'Setting',
                             'route' => '/superadmin/cbt/setting',
                             'icon' => 'SettingOutlined',

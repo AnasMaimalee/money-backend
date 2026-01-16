@@ -302,8 +302,8 @@ Route::middleware('auth:api')->prefix('cbt')->group(function () {
         Route::put('/subjects/{subject}', [SubjectController::class, 'update']);
 
         // Questions
-        Route::post('/questions/upload', [QuestionUploadController::class, 'upload']);
         Route::get('/questions', [QuestionBankController::class, 'index']);
+        Route::post('/questions/upload', [QuestionUploadController::class, 'upload']);
         Route::get('/questions/{question}/preview', [QuestionBankController::class, 'preview']);
 
         // Live CBT monitoring
@@ -318,7 +318,7 @@ Route::middleware('auth:api')->prefix('cbt')->group(function () {
     | USER CBT EXAM FLOW
     |--------------------------------------------------------------------------
     */
-    Route::middleware(['role:user', 'cbt.last.seen'])->prefix('user')->group(function () {
+    Route::middleware('role:user')->prefix('user')->group(function () {
 
         // ---------------- EXAM LIFECYCLE ----------------
         Route::post('/exam/start', [ExamController::class, 'start']);
