@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\CBT\NotificationController;
 use App\Http\Controllers\Api\CBT\SubjectController;
 use App\Http\Controllers\Api\CBT\LeaderboardController;
 use App\Http\Controllers\Api\CBT\SuperAdmin\AdminCbtController;
+use App\Http\Controllers\Api\CBT\SuperAdmin\CbtSettingController;
 
 /* |--------------------------------------------------------------------------
  | Public Auth Routes
@@ -311,6 +312,9 @@ Route::middleware('auth:api')->prefix('cbt')->group(function () {
 
         // Leaderboard (global)
         Route::get('/leaderboard', [LeaderboardController::class, 'index']);
+
+        Route::get('/settings', [CbtSettingController::class, 'index']);
+        Route::put('/settings', [CbtSettingController::class, 'update']);
     });
 
     /*
@@ -361,5 +365,4 @@ Route::middleware('auth:api')->prefix('cbt')->group(function () {
         Route::post('/exam/{exam}/heartbeat', [ExamTimerController::class, 'heartbeat']);
         Route::post('/exam/{exam}/check-time', [ExamTimerController::class, 'checkAndSubmit']);
     });
-
 });
