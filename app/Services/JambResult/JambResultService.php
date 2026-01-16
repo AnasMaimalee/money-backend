@@ -21,65 +21,47 @@ class JambResultService
     ) {}
 
     /**
-     * Get user's own JAMB result requests
+     * ======================
+     * USER
+     * ======================
      */
+
     public function my(User $user)
     {
         return $this->repo->userRequests($user->id);
     }
 
-    /**
-     * User submits a new JAMB Result request
-     */
     public function submit(User $user, array $data)
     {
         $service = Service::where('active', true)
             ->whereRaw('LOWER(name) = ?', [strtolower('Jamb Original Result')])
             ->firstOrFail();
 
-        // Check balance
         if ($user->wallet->balance < $service->customer_price) {
             abort(422, 'Insufficient wallet balance');
         }
 
         $superAdmin = User::role('superadmin')->first();
+        if (! $superAdmin) abort(500, 'Super admin not configured');
 
-        if (! $superAdmin) {
-            abort(500, 'Super admin not configured');
-        }
-
-        // Unique group reference to link debit + credit
         $groupReference = 'jamb_result_' . Str::uuid();
+        $transactions = null;
 
-        // We'll capture the debit transaction to use in email
-        $debitTransaction = null;
-        $createdRequest = null;
-
-        $createdRequest = DB::transaction(function () use (
-            $user, $data, $service, $superAdmin, $groupReference, &$debitTransaction
-        ) {
-            // 1. Debit user wallet
-            $debitTransaction = $this->walletService->debitUser(
-                $user,
-                $service->customer_price,
-                'Purchase: JAMB Original Result',
-                $groupReference
+        $createdRequest = DB::transaction(function () use ($user, $data, $service, $superAdmin, $groupReference, &$transactions) {
+            // Atomic debit from user and credit to platform
+            $transactions = $this->walletService->servicePayment(
+                customer: $user,
+                platform: $superAdmin,
+                amount: $service->customer_price,
+                description: 'Purchase: JAMB Original Result',
+                groupReference: $groupReference
             );
 
-            // 2. Credit superadmin (platform receives payment)
-            $this->walletService->creditUser(
-                $superAdmin,
-                $service->customer_price,
-                'Payment received: JAMB Original Result (User: ' . $user->name . ')',
-                $groupReference
-            );
-
-            // 3. Create the request
             return $this->repo->create([
                 'user_id'             => $user->id,
                 'service_id'          => $service->id,
                 'email'               => $data['email'],
-                'profile_code'        =>$data['profile_code'],
+                'profile_code'        => $data['profile_code'],
                 'phone_number'        => $data['phone_number'] ?? null,
                 'registration_number' => $data['registration_number'] ?? null,
                 'customer_price'      => $service->customer_price,
@@ -89,28 +71,42 @@ class JambResultService
             ]);
         });
 
-        Mail::to($user->email)->send(
-            new WalletDebited(
-                $user,
-                $service->customer_price,
-                $debitTransaction->balance_after,
-                'Purchase: JAMB Original Result'
-            )
-        );
+        // Send debit confirmation to user
+        if ($transactions && $transactions['debit_transaction']) {
+            Mail::to($user->email)->send(
+                new WalletDebited(
+                    $user,
+                    $service->customer_price,
+                    $transactions['debit_transaction']->balance_after,
+                    'Purchase: JAMB Original Result'
+                )
+            );
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Your work has been successfully submitted.',
         ], 201);
-
     }
 
     /**
-     * Admin takes a pending job
+     * ======================
+     * ADMIN
+     * ======================
      */
-    public function take(string $id, User $admin)
+
+    public function pending()
     {
         if (! auth()->user()->hasRole('administrator')) {
+            abort(403, 'Unauthorized action');
+        }
+
+        return $this->repo->pendingRequests();
+    }
+
+    public function take(string $id, User $admin)
+    {
+        if (! $admin->hasRole('administrator')) {
             abort(403, 'Unauthorized action');
         }
 
@@ -128,12 +124,9 @@ class JambResultService
         return $job;
     }
 
-    /**
-     * Admin completes the job by uploading result file
-     */
     public function complete(string $id, string $filePath, User $admin)
     {
-        if (! auth()->user()->hasRole('administrator')) {
+        if (! $admin->hasRole('administrator')) {
             abort(403, 'Unauthorized action');
         }
 
@@ -156,7 +149,7 @@ class JambResultService
 
             $job->load(['user', 'service', 'completedBy']);
 
-            // Notify user that result is ready (awaiting approval)
+            // Notify user (job completed, awaiting approval)
             Mail::to($job->email)->send(
                 new JambResultServiceCompletedMail($job)
             );
@@ -179,12 +172,24 @@ class JambResultService
         });
     }
 
+    public function myJobs(User $admin)
+    {
+        if (! $admin->hasRole('administrator')) {
+            abort(403, 'Unauthorized action');
+        }
+
+        return $this->repo->takenBy($admin->id);
+    }
+
     /**
-     * Superadmin approves job and pays admin
+     * ======================
+     * SUPER ADMIN
+     * ======================
      */
+
     public function approve(string $id, User $superAdmin)
     {
-        if (! auth()->user()->hasRole('superadmin')) {
+        if (! $superAdmin->hasRole('superadmin')) {
             abort(403, 'Unauthorized financial action');
         }
 
@@ -195,21 +200,21 @@ class JambResultService
                 abort(422, 'Job is not ready for approval');
             }
 
-            if ($job->status === 'approved') {
-                abort(422, 'Job already approved');
+            if ($job->is_paid) {
+                abort(409, 'Job already paid');
             }
 
-            // ✅ FIXED: DEBIT SUPERADMIN WALLET → CREDIT ADMIN
+            // Debit superadmin and credit admin
             $this->walletService->adminCreditUser(
-                $superAdmin,                          // Superadmin (verification ONLY)
-                $job->completedBy,                   // Admin who gets PAID
-                $job->admin_payout,                  // PAYOUT AMOUNT
-                'Payment for completed JAMB Result service (Request #' . $job->id . ')'
+                $superAdmin,
+                $job->completedBy,
+                $job->admin_payout,
+                'Payment for JAMB Result service (Request #' . $job->id . ')'
             );
 
             $job->update([
                 'status'          => 'approved',
-                'is_paid'          => true,
+                'is_paid'         => true,
                 'platform_profit' => $job->customer_price - $job->admin_payout,
                 'approved_by'     => $superAdmin->id,
             ]);
@@ -219,17 +224,13 @@ class JambResultService
                 'job_id'          => $job->id,
                 'admin_paid'      => $job->admin_payout,
                 'platform_profit' => $job->platform_profit,
-                'wallet_flow'     => 'SuperAdmin → Admin'
             ];
         });
     }
 
-    /**
-     * Superadmin rejects job and refunds user
-     */
     public function reject(string $id, string $reason, User $superAdmin)
     {
-        if (! auth()->user()->hasRole('superadmin')) {
+        if (! $superAdmin->hasRole('superadmin')) {
             abort(403, 'Unauthorized financial action');
         }
 
@@ -240,11 +241,11 @@ class JambResultService
                 abort(422, 'Job already rejected');
             }
 
-            if (!in_array($job->status, ['completed_by_admin', 'processing'])) {
+            if (!in_array($job->status, ['completed', 'processing'])) {
                 abort(422, 'Job cannot be rejected at this stage');
             }
 
-            // Refund user from platform (superadmin wallet)
+            // Refund user from superadmin wallet
             $this->walletService->transfer(
                 $superAdmin,
                 $job->user,
@@ -258,12 +259,11 @@ class JambResultService
                 'rejection_reason' => $reason,
             ]);
 
-            // Notify user
+            // Notify user and admin
             Mail::to($job->email)->send(
                 new JambResultServiceRejectionMail($job)
             );
 
-            // Notify admin who worked on it
             if ($job->completedBy) {
                 Mail::to($job->completedBy->email)->send(
                     new JambResultServiceRejectionMail($job)
@@ -279,21 +279,6 @@ class JambResultService
         });
     }
 
-    /**
-     * Get all pending jobs (for administrators)
-     */
-    public function pending()
-    {
-        if (! auth()->user()->hasRole('administrator')) {
-            abort(403, 'Unauthorized action');
-        }
-
-        return $this->repo->pendingRequests();
-    }
-
-    /**
-     * Get all jobs with relations (for superadmin)
-     */
     public function all()
     {
         if (! auth()->user()->hasRole('superadmin')) {
