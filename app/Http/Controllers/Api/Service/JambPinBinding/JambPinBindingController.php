@@ -27,7 +27,55 @@ class JambPinBindingController extends Controller
         );
     }
 
+    public function processedByAdmin()
+    {
+        $admin = auth()->user();
 
+        if (! $admin->hasRole('administrator')) {
+            abort(403, 'Only administrators can view processed jobs');
+        }
+
+        $jobs = JambPinBindingRequest::with([
+            'user',
+            'service',
+            'completedBy.roles',
+        ])
+            ->where('completed_by', $admin->id)
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return response()->json([
+            'message' => 'Jobs processed by logged-in administrator',
+            'data' => $jobs->map(function ($job) {
+                return [
+                    'id' => $job->id,
+                    'status' => $job->status,
+
+                    'user' => [
+                        'name'  => $job->user->name,
+                        'email' => $job->user->email,
+                    ],
+                    'payment' => [
+                        'is_paid' => $job->is_paid,
+                        'paid_at' => $job->paid_at,
+                    ],
+                    'service' => $job->service->name,
+
+                    'completed_by' => [
+                        'id'   => $job->completedBy->id,
+                        'name' => $job->completedBy->name,
+                        'role' => $job->completedBy->roles->pluck('name')->first(),
+                    ],
+
+                    'result_file_url' => $job->result_file
+                        ? asset('storage/' . $job->result_file)
+                        : null,
+
+                    'processed_at' => $job->updated_at,
+                ];
+            }),
+        ]);
+    }
 
     // User submits request
     public function store(Request $request)
@@ -44,7 +92,15 @@ class JambPinBindingController extends Controller
 
     }
 
-
+    public function myJobs()
+    {
+        return JambPinBindingRequestResource::collection(
+            JambPinBindingRequest::where('status', 'processing')
+                ->where('taken_by', auth()->id())
+                ->latest()
+                ->get()
+        );
+    }
     /**
      * ======================
      * ADMIN / SUPER ADMIN
