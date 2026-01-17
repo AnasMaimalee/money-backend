@@ -43,39 +43,45 @@ class JambUploadStatusService
         }
 
         $superAdmin = User::role('superadmin')->first();
-
         if (! $superAdmin) {
             abort(500, 'Super admin not configured');
         }
 
-        // Unique group reference
-        $groupReference = 'jamb_upload_status_' . Str::uuid();
+        // Base reference (for logical grouping only)
+        $baseReference = 'jamb_upload_status_' . Str::uuid();
 
-        // Capture debit transaction for email
         $debitTransaction = null;
-        $createdRequest = null;
 
-        $createdRequest = DB::transaction(function () use (
-            $user, $data, $service, $superAdmin, $groupReference, &$debitTransaction
+        DB::transaction(function () use (
+            $user,
+            $data,
+            $service,
+            $superAdmin,
+            $baseReference,
+            &$debitTransaction
         ) {
-            // 1. Debit user wallet
+            // ✅ UNIQUE references per wallet action
+            $debitReference  = $baseReference . '_debit';
+            $creditReference = $baseReference . '_credit';
+
+            // 1️⃣ Debit user
             $debitTransaction = $this->walletService->debitUser(
                 $user,
                 $service->customer_price,
                 'Purchase: JAMB Upload Status Check',
-                $groupReference
+                $debitReference
             );
 
-            // 2. Credit platform (superadmin)
+            // 2️⃣ Credit platform (superadmin)
             $this->walletService->creditUser(
                 $superAdmin,
                 $service->customer_price,
                 'Payment received: JAMB Upload Status (User: ' . $user->name . ')',
-                $groupReference
+                $creditReference
             );
 
-            // 3. Create request with platform_profit
-            return $this->repo->create([
+            // 3️⃣ Create request
+            $this->repo->create([
                 'user_id'             => $user->id,
                 'service_id'          => $service->id,
                 'email'               => $data['email'],
@@ -90,7 +96,7 @@ class JambUploadStatusService
             ]);
         });
 
-        // Send debit email to user
+        // 📧 Debit email
         Mail::to($user->email)->send(
             new WalletDebited(
                 user: $user,
@@ -104,8 +110,8 @@ class JambUploadStatusService
             'success' => true,
             'message' => 'Your work has been successfully submitted.',
         ], 201);
-
     }
+
 
     /**
      * ======================
