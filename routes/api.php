@@ -348,6 +348,7 @@ Route::middleware('auth:api')->prefix('cbt')->group(function () {
     Route::middleware('role:user')->prefix('user')->group(function () {
 
         // ---------------- EXAM LIFECYCLE ----------------
+        Route::get('/exam-fee', [ExamController::class, 'examFee']);
         Route::post('/exam/start', [ExamController::class, 'start']);
         Route::get('/exam/ongoing', [ExamController::class, 'ongoingExams']);
         Route::get('/exam/{exam}', [ExamController::class, 'show']);

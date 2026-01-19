@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\CBT;
 
 use App\Http\Controllers\Controller;
+use App\Models\CbtSetting;
 use App\Models\Exam;
 use App\Repositories\CBT\ExamRepository;
 use Illuminate\Http\Request;
@@ -16,8 +17,15 @@ class ExamController extends Controller
         protected ExamService $examService,
         protected ExamRepository $examRepository,
         protected WalletPaymentService $walletService
+
     ) {}
 
+    public function examFee(){
+        $exam = CbtSetting::where('id', 'cbt-settings-global')->first();
+        return response([
+            'exam_fee' => $exam->exam_fee
+        ]);
+    }
     /* =====================================================
      | START EXAM - FIXED
      ===================================================== */
