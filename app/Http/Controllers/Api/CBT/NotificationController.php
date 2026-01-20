@@ -16,7 +16,7 @@ class NotificationController extends Controller
         $notifications = $request->user()
             ->notifications()
             ->latest()
-            ->limit(20)
+            ->limit(30)
             ->get()
             ->map(function (DatabaseNotification $notification) {
                 return [

@@ -85,9 +85,9 @@ class JambAdmissionLetterController extends Controller
     {
 
         $data = $request->validate([
-            'email' => 'required|email',
-            'phone_number' => 'required|string',
-            'profile_code' => 'required|string',
+            'email' => 'nullable|email',
+            'phone_number' => 'nullable|string',
+            'profile_code' => 'nullable|string',
             'registration_number' => 'nullable|string',
         ]);
 
