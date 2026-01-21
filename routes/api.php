@@ -56,14 +56,18 @@ use App\Http\Controllers\Api\CBT\SuperAdmin\LiveCbtController;
  |-------------------------------------------------------------------------- */
 Route::prefix('auth')->group(function () {
     Route::post('/register', [MeController::class, 'register']);
-    Route::post('/login', [MeController::class, 'login'])
-        ->middleware('throttle:5,1');
+    Route::post('/login', [MeController::class, 'login']);
+    // routes/api.php
+    Route::post('/login/check', [MeController::class, 'loginCheck']);
+
+        // ->middleware('throttle:5,1');
 
          Route::middleware('auth:api')->group(function () {
             Route::post('/2fa/setup', [TwoFactorController::class, 'setup']);
             Route::post('/2fa/confirm', [TwoFactorController::class, 'confirm']);
     });
 });
+
 
 //finger print
 

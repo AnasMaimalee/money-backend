@@ -52,76 +52,85 @@ class MeController extends Controller
     }
 
    
-    public function login(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-            'two_fa_code' => 'nullable|digits:6',
-            'recovery_code' => 'nullable|string',
-        ]);
 
-        // ✅ STEP 1: Attempt login with API guard
-        if (! $token = auth('api')->attempt($request->only('email', 'password'))) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
-        }
 
-        // ✅ STEP 2: Force API guard context for Spatie
-        config(['auth.defaults.guard' => 'api']);
-        
-        $user = auth('api')->user();
+public function login(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|string',
+        'two_fa_code' => 'nullable|digits:6',
+        'recovery_code' => 'nullable|string',
+    ]);
 
-        // ✅ STEP 3: Safe 2FA check (bypass Spatie issue)
-        $isSuperAdmin = $user->getRoleNames()->contains('superadmin');
-        $needs2FA = $isSuperAdmin && $user->google2fa_enabled;
+    // ---------------- STEP 1: Check email/password ----------------
+    $credentials = $request->only('email', 'password');
 
-        if ($needs2FA) {
-            if (! $request->filled('two_fa_code') && ! $request->filled('recovery_code')) {
-                auth('api')->logout();
-                return response()->json([
-                    'requires_2fa' => true,
-                    'message' => 'Two-factor authentication required',
-                ], 403);
-            }
-
-            $google2fa = new Google2FA();
-
-            // NORMAL 2FA ✅ Fixed field name
-            if ($request->filled('two_fa_code')) {
-                if (! $google2fa->verifyKey($user->google2fa_secret, $request->two_fa_code)) {
-                    auth('api')->logout();
-                    return response()->json(['message' => 'Invalid 2FA code'], 401);
-                }
-            }
-
-            // RECOVERY CODE
-            if ($request->filled('recovery_code')) {
-                $codes = collect($user->google2fa_recovery_codes);
-                if (! $codes->contains($request->recovery_code)) {
-                    auth('api')->logout();
-                    return response()->json(['message' => 'Invalid recovery code'], 401);
-                }
-                $user->update([
-                    'google2fa_recovery_codes' => $codes->reject(fn ($c) => $c === $request->recovery_code)->values()->toArray(),
-                ]);
-            }
-        }
-
-        // ✅ STEP 4: Load relations safely
-        $user->load(['wallet']);
-
-        return response()->json([
-            'token' => $token,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role' => $user->getRoleNames()->first() ?? 'user',
-            ],
-            'menus' => $this->getMenusForUser($user),
-        ]);
+    if (!auth('api')->attempt($credentials)) {
+        return response()->json(['message' => 'Invalid email or password'], 401);
     }
+
+    // Get the logged-in user
+    $user = auth('api')->user();
+
+    // ---------------- STEP 2: Check 2FA requirement ----------------
+    $isSuperAdmin = $user->getRoleNames()->contains('superadmin');
+    $needs2FA = $isSuperAdmin && $user->google2fa_enabled;
+
+    if ($needs2FA) {
+        // If 2FA code or recovery code is not provided yet
+        if (!$request->filled('two_fa_code') && !$request->filled('recovery_code')) {
+            auth('api')->logout(); // optional, but safe
+            return response()->json([
+                'requires_2fa' => true,
+                'message' => 'Two-factor authentication required',
+            ], 403);
+        }
+
+        $google2fa = new Google2FA();
+
+        // Validate normal 2FA code
+        if ($request->filled('two_fa_code')) {
+            if (!$google2fa->verifyKey($user->google2fa_secret, $request->two_fa_code)) {
+                auth('api')->logout();
+                return response()->json(['message' => 'Invalid 2FA code'], 401);
+            }
+        }
+
+        // Validate recovery code
+        if ($request->filled('recovery_code')) {
+            $codes = collect($user->google2fa_recovery_codes);
+            if (!$codes->contains($request->recovery_code)) {
+                auth('api')->logout();
+                return response()->json(['message' => 'Invalid recovery code'], 401);
+            }
+            // Remove used recovery code
+            $user->update([
+                'google2fa_recovery_codes' => $codes->reject(fn($c) => $c === $request->recovery_code)->values()->toArray(),
+            ]);
+        }
+    }
+
+    // ---------------- STEP 3: Generate token ----------------
+    $token = auth('api')->login($user);
+
+    // ---------------- STEP 4: Load relations ----------------
+    $user->load(['wallet']);
+
+    // ---------------- STEP 5: Return response ----------------
+    return response()->json([
+        'token' => $token,
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'role' => $user->getRoleNames()->first() ?? 'user',
+        ],
+        'menus' => $this->getMenusForUser($user),
+    ]);
+}
+
 
 
     /**
@@ -173,7 +182,31 @@ class MeController extends Controller
             'message' => 'Password updated successfully'
         ]);
     }
+    
+    public function loginCheck(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
 
+        // Attempt to find user
+        $user = \App\Models\User::where('email', $request->email)->first();
+
+        if (!$user || !\Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Invalid email or password'
+            ], 401);
+        }
+
+        // Check if 2FA is enabled
+        $google2fa = new Google2FA();
+        $needs2FA = $user->google2fa_enabled; // or $user->google2fa_secret != null
+
+        return response()->json([
+            'requires_2fa' => $needs2FA
+        ]);
+    }
 
     // CREATE ADMINISTRATOR
     public function createAdministrator(Request $request)
