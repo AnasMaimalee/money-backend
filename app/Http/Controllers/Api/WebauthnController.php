@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Auth\MeController;
 use App\Services\Auth\WebAuthnService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -11,7 +12,8 @@ use Illuminate\Support\Facades\Log;
 class WebauthnController extends Controller
 {
     public function __construct(
-        protected WebAuthnService $webauthn
+        protected WebAuthnService $webauthn,
+        protected MeController $meController
     ) {}
 
     public function registerOptions(Request $request): JsonResponse
@@ -51,22 +53,41 @@ class WebauthnController extends Controller
     public function login(Request $request): JsonResponse
     {
         try {
-            // Get the user via WebAuthn credential
+            // 1️⃣ Authenticate user via WebAuthn
             $user = $this->webauthn->login($request);
 
-            // Generate JWT token using your existing JWTAuth setup
-            $token = auth('api')->login($user); // <-- JWT token
+            // 2️⃣ Generate JWT token
+            $token = auth('api')->login($user);
+
+            // 3️⃣ Force API guard (Spatie safety)
+            config(['auth.defaults.guard' => 'api']);
+
+            // 4️⃣ Load relations
+            $user->load(['wallet']);
+
+            // 5️⃣ Get menus using SAME logic as normal login
+            $menus = $this->meController->getMenusForUser($user);
 
             return response()->json([
-                'message' => 'Login successful',
-                'user' => $user,
-                'token' => $token, // this is your JWT token
+                'token' => $token,
+                'user' => [
+                    'id'    => $user->id,
+                    'name'  => $user->name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'role'  => $user->getRoleNames()->first() ?? 'user',
+                ],
+                'menus' => $menus,
             ]);
         } catch (\Exception $e) {
             Log::error('WebAuthn login failed: ' . $e->getMessage());
-            return response()->json(['message' => 'Authentication failed'], 401);
+
+            return response()->json([
+                'message' => 'Authentication failed'
+            ], 401);
         }
     }
+
 
 
     public function index(Request $request): JsonResponse

@@ -25,7 +25,7 @@ class ExamController extends Controller
     ) {}
 
     public function examFee(){
-        $exam = CbtSetting::where('id', 'cbt-settings-global')->first();
+        $exam = CbtSetting::first();
         return response([
             'exam_fee' => $exam->exam_fee
         ]);

@@ -288,7 +288,7 @@ class MeController extends Controller
 
 
     // Define menu items per role
-    private function getMenusForUser(User $user)
+    public function getMenusForUser(User $user)
     {
         $menus = [
             'user' => [
