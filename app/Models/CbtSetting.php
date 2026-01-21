@@ -8,9 +8,6 @@ use Illuminate\Support\Str;
 
 class CbtSetting extends Model
 {
-    use HasFactory;
-
-    
     protected $fillable = [
         'subjects_count',
         'questions_per_subject',
@@ -18,17 +15,17 @@ class CbtSetting extends Model
         'exam_fee',
     ];
 
-    public $incrementing = false;
-    protected $keyType = 'string';
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            if (! $model->getKey()) {
-                $model->{$model->getKeyName()} = (string) Str::uuid();
-            }
-        });
-    }
+    public static function get(): self
+{
+    return static::query()->firstOrCreate(
+        ['id' => 1], // look for id 1
+        [
+            'subjects_count' => 4,
+            'questions_per_subject' => 50,
+            'duration_minutes' => 40,
+            'exam_fee' => 100,
+        ]
+    );
 }
+}
+

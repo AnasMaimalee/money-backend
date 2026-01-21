@@ -12,10 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('cbt_settings', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->unsignedTinyInteger('subjects_count')->default(4);
-            $table->unsignedTinyInteger('questions_per_subject')->default(15);
-            $table->unsignedSmallInteger('duration_minutes')->default(120);
+            $table->id();
+            $table->unsignedTinyInteger('subjects_count');
+            $table->unsignedTinyInteger('questions_per_subject');
+            $table->unsignedSmallInteger('duration_minutes');
             $table->decimal('exam_fee', 10, 2)->default(0);
             $table->timestamps();
         });

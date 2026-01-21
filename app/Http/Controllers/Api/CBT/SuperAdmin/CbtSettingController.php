@@ -13,6 +13,9 @@ class CbtSettingController extends Controller
         private CbtSettingService $service
     ) {}
 
+    /**
+     * GET /cbt/superadmin/settings
+     */
     public function index(): JsonResponse
     {
         return response()->json([
@@ -21,6 +24,9 @@ class CbtSettingController extends Controller
         ]);
     }
 
+    /**
+     * PUT /cbt/superadmin/settings
+     */
     public function update(UpdateCbtSettingsRequest $request): JsonResponse
     {
         return response()->json([

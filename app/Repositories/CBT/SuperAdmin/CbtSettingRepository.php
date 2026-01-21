@@ -3,16 +3,17 @@
 namespace App\Repositories\CBT\SuperAdmin;
 
 use App\Models\CbtSetting;
-use Illuminate\Support\Str;
 
 class CbtSettingRepository
 {
-    private const GLOBAL_ID = 'cbt-settings-global';
-
+    /**
+     * Fetch the single global CBT settings row
+     */
     public function get(): CbtSetting
     {
+        // Always fetch id=1, create if missing
         return CbtSetting::firstOrCreate(
-            ['id' => self::GLOBAL_ID],
+            ['id' => 1], // single row
             [
                 'subjects_count' => 4,
                 'questions_per_subject' => 15,
@@ -22,10 +23,20 @@ class CbtSettingRepository
         );
     }
 
+    /**
+     * Update the single global CBT settings row
+     */
     public function update(array $data): CbtSetting
     {
-        $settings = $this->get();
-        $settings->update($data);
-        return $settings->fresh();
+        $setting = $this->get();
+
+        $setting->update([
+            'subjects_count' => $data['subjects_count'],
+            'questions_per_subject' => $data['questions_per_subject'],
+            'duration_minutes' => $data['duration_minutes'],
+            'exam_fee' => $data['exam_fee'],
+        ]);
+
+        return $setting;
     }
 }

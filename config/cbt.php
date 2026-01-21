@@ -1,9 +1,9 @@
 <?php
 return [
-    'subjects_count' => 4,
+    'subjects_count' => 0,
 
-    'questions_per_subject' => 25, // or 40 later
-    'duration_minutes' => 120,
+    'questions_per_subject' => 0, // or 40 later
+    'duration_minutes' => 0,
 
-    'exam_fee' => 1000,
+    'exam_fee' => 0,
 ];

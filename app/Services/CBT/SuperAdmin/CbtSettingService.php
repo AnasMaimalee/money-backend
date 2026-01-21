@@ -10,6 +10,9 @@ class CbtSettingService
         private CbtSettingRepository $repository
     ) {}
 
+    /**
+     * Fetch settings for frontend
+     */
     public function fetch(): array
     {
         $s = $this->repository->get();
@@ -22,6 +25,9 @@ class CbtSettingService
         ];
     }
 
+    /**
+     * Update settings from frontend
+     */
     public function update(array $data): array
     {
         $s = $this->repository->update($data);
@@ -34,4 +40,3 @@ class CbtSettingService
         ];
     }
 }
-

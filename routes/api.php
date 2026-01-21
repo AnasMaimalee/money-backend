@@ -226,7 +226,7 @@ Route::middleware('auth:api')->group(function () {
     /* |--------------------------------------------------------------------------
      | Dashboards
      |-------------------------------------------------------------------------- */
-    Route::get('/dashboard/user', [UserDashboardController::class, 'index']);
+    Route::middleware('role:user')->get('/dashboard/user', [UserDashboardController::class, 'index']);
 
     Route::middleware('role:administrator')->get('/dashboard/admin', [AdminDashboardController::class, 'index']);
 

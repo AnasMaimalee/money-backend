@@ -24,12 +24,23 @@ class ExamController extends Controller
 
     ) {}
 
-    public function examFee(){
-        $exam = CbtSetting::first();
-        return response([
-            'exam_fee' => $exam->exam_fee
-        ]);
+    public function examFee()
+    {
+        $cbtSetting = CbtSetting::query()->first();
+
+        if (!$cbtSetting) {
+            return response()->json([
+                'message' => 'CBT settings not configured yet'
+            ], 400);
+        }
+
+        $examFee = (float) $cbtSetting->exam_fee;
+
     }
+
+   
+
+
     /* =====================================================
      | START EXAM - FIXED
      ===================================================== */
@@ -41,9 +52,9 @@ class ExamController extends Controller
             'subjects.*' => 'exists:subjects,id',
         ]);
 
-        $user    = $request->user();
-        $cbtSetting = CbtSetting::where('id', 'cbt-settings-global')->first();
-        $examFee = (float) $cbtSetting->exam_fee;
+        $user = $request->user();
+
+
         DB::beginTransaction();
         try {
             // ✅ 1. Create exam FIRST
