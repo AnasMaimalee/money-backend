@@ -159,6 +159,8 @@ Route::middleware('auth:api')->group(function () {
 
     foreach ($jambServices as $prefix => $controller) {
         Route::prefix("services/{$prefix}")->group(function () use ($controller) {
+            Route::get('/{id}/download', [$controller, 'download']);
+
             // User routes
             Route::post('/', [$controller, 'store']);                    // Create request
             Route::get('/my', [$controller, 'my']);                        // User's own requests

@@ -10,7 +10,10 @@ use App\Models\User;
 class JambAdmissionLetterRequest extends Model
 {
     use HasUuids;
-
+    
+    protected $keyType = 'string';
+    public $incrementing = false;  
+    
     protected $fillable = [
         'user_id',
         'service_id',

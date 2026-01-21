@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Providers;
-
+use App\Policies\JambAdmissionLetterRequestPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -20,6 +20,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Exam::class => ExamPolicy::class,
+        JambAdmissionLetterRequest::class => JambAdmissionLetterRequestPolicy::class,
+    
     ];
 
     /**

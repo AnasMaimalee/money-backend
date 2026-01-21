@@ -10,34 +10,48 @@ return new class extends Migration {
         Schema::create('jamb_admission_letter_requests', function (Blueprint $table) {
             $table->uuid('id')->primary();
 
-            $table->uuid('user_id');
-            $table->uuid('service_id');
+            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('service_id')->constrained()->restrictOnDelete();
 
             $table->string('email');
             $table->string('phone_number');
-            $table->string('profile_code'); // ✅ new field
+            $table->string('profile_code');
             $table->string('registration_number')->nullable();
 
+            // 🔒 FINANCIAL (NEVER EXPOSE VIA API)
             $table->decimal('customer_price', 10, 2);
             $table->decimal('admin_payout', 10, 2);
             $table->decimal('platform_profit', 10, 2);
 
-            $table->enum('status', ['pending', 'taken', 'completed', 'processing', 'approved', 'rejected', 'completed'])
-                ->default('pending');
+            $table->enum('status', [
+                'pending',
+                'taken',
+                'processing',
+                'completed',
+                'approved',
+                'rejected',
+            ])->default('pending');
 
             $table->boolean('is_paid')->default(false);
 
-            $table->uuid('taken_by')->nullable();
-            $table->uuid('completed_by')->nullable();
-            $table->uuid('approved_by')->nullable();
-            $table->uuid('rejected_by')->nullable();
+            $table->foreignUuid('taken_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignUuid('completed_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignUuid('approved_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignUuid('rejected_by')->nullable()->references('id')->on('users')->nullOnDelete();
 
+            // 🔐 PRIVATE FILE (NOT PUBLIC URL)
             $table->string('result_file')->nullable();
+
             $table->text('rejection_reason')->nullable();
             $table->text('admin_note')->nullable();
 
             $table->timestamps();
+
+            // 🔎 PERFORMANCE + SECURITY
+            $table->index(['user_id', 'status']);
+            $table->index(['completed_by', 'status']);
         });
+
     }
 
     public function down(): void

@@ -7,11 +7,17 @@ use App\Http\Resources\JambResultRequestResource;
 use App\Models\JambAdmissionLetterRequest;
 use App\Models\JambResultRequest;
 use Illuminate\Http\Request;
+use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\Storage;
 use App\Services\JambAdmissionLetter\JambAdmissionLetterService;
 use App\Http\Resources\JambAdmissionLetterRequestResource;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Log;
 
 class JambAdmissionLetterController extends Controller
 {
+  use AuthorizesRequests;
+
     public function __construct(
         protected JambAdmissionLetterService $service
     ) {}
@@ -48,36 +54,22 @@ class JambAdmissionLetterController extends Controller
             ->get();
 
         return response()->json([
-            'message' => 'Jobs processed by logged-in administrator',
-            'data' => $jobs->map(function ($job) {
-                return [
-                    'id' => $job->id,
-                    'status' => $job->status,
-
-                    'user' => [
-                        'name'  => $job->user->name,
-                        'email' => $job->user->email,
-                    ],
-                    'payment' => [
-                        'is_paid' => $job->is_paid,
-                        'paid_at' => $job->paid_at,
-                    ],
-                    'service' => $job->service->name,
-
-                    'completed_by' => [
-                        'id'   => $job->completedBy->id,
-                        'name' => $job->completedBy->name,
-                        'role' => $job->completedBy->roles->pluck('name')->first(),
-                    ],
-
-                    'result_file_url' => $job->result_file
-                        ? asset('storage/' . $job->result_file)
-                        : null,
-
-                    'processed_at' => $job->updated_at,
-                ];
-            }),
+            'message' => 'Jobs processed by you',
+            'data' => $jobs->map(fn ($job) => [
+                'id' => $job->id,
+                'status' => $job->status,
+                'service' => $job->service->name,
+                'user' => [
+                    'name' => $job->user->name,
+                ],
+                'payment' => [
+                    'is_paid' => $job->is_paid,
+                ],
+                'can_download' => (bool) $job->result_file,
+                'processed_at' => $job->updated_at,
+            ]),
         ]);
+
     }
 
     // User submits request
@@ -196,5 +188,39 @@ class JambAdmissionLetterController extends Controller
         return response()->json(
             $this->service->all()
         );
+    }
+
+   public function download(string $id)
+    {
+        $job = JambAdmissionLetterRequest::findOrFail($id);
+        $this->authorize('download', $job);
+
+        abort_if(
+            ! $job->result_file || ! Storage::disk('public')->exists($job->result_file),
+            404,
+            'File not available'
+        );
+
+        // 📂 Full file path
+        $path = $job->result_file;
+
+        // 📎 Extension (pdf, png, jpg, jpeg)
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+
+        // 🧠 Detect mime type properly
+        $mime = Storage::disk('public')->mimeType($path);
+
+        // 🏷️ Clean filename
+        $filename = "JAMB_Admission_Letter_{$job->id}.{$extension}";
+
+        return response()->download(
+            Storage::disk('public')->path($path),
+            $filename,
+            [
+                'Content-Type' => $mime,
+            ]
+        );
+
+
     }
 }
