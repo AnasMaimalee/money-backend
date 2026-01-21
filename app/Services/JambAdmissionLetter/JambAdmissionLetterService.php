@@ -135,12 +135,13 @@ class JambAdmissionLetterService
 
     public function complete(string $id, string $filePath, User $admin)
     {
-        if (! auth()->user()->hasRole('administrator')) {
+        if (! $admin->hasRole('administrator')) {
             abort(403, 'Unauthorized action');
         }
 
         return DB::transaction(function () use ($id, $filePath, $admin) {
-            $job = $this->repo->find($id);
+
+            $job = $this->repo->findOrFail($id);
 
             if ($job->taken_by !== $admin->id) {
                 abort(403, 'You did not take this job');
@@ -162,23 +163,10 @@ class JambAdmissionLetterService
                 new JambAdmissionLetterCompletedMail($job)
             );
 
-            return [
-                'message' => 'Job completed and awaiting superadmin approval',
-                'job' => [
-                    'id'               => $job->id,
-                    'status'           => $job->status,
-                    'user'             => [
-                        'name'  => $job->user->name,
-                        'email' => $job->user->email,
-                    ],
-                    'service'          => $job->service->name,
-                    'completed_by'     => $job->completedBy->name,
-                    'result_file_url'  => asset('storage/' . $job->result_file),
-                    'created_at'       => $job->created_at,
-                ],
-            ];
+            return $job; // ✅ RETURN MODEL
         });
     }
+
 
     /**
      * ======================

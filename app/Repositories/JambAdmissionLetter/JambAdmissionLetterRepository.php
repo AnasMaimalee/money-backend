@@ -10,6 +10,12 @@ class JambAdmissionLetterRepository
     {
         return JambAdmissionLetterRequest::create($data);
     }
+    
+    public function findOrFail(string $id): JambAdmissionLetterRequest
+    {
+        return JambAdmissionLetterRequest::findOrFail($id);
+    }
+
 
     public function getAll()
     {

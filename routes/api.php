@@ -148,40 +148,48 @@ Route::middleware('auth:api')->group(function () {
     /* |--------------------------------------------------------------------------
      | JAMB Services – Dynamic Routing (FIXED)
      |-------------------------------------------------------------------------- */
-    $jambServices = [
-        'jamb-result'                           => JambResultController::class,
-        'jamb-admission-letter'                 => JambAdmissionLetterController::class,
-        'jamb-upload-status'                    => JambUploadStatusController::class,
-        'jamb-admission-status'                 => JambAdmissionStatusController::class,
-        'jamb-admission-result-notification'    => JambAdmissionResultNotificationController::class,
-        'jamb-pin-binding'                      => JambPinBindingController::class,
+   $jambServices = [
+        'jamb-result'                        => JambResultController::class,
+        'jamb-admission-letter'              => JambAdmissionLetterController::class,
+        'jamb-upload-status'                 => JambUploadStatusController::class,
+        'jamb-admission-status'              => JambAdmissionStatusController::class,
+        'jamb-admission-result-notification' => JambAdmissionResultNotificationController::class,
+        'jamb-pin-binding'                   => JambPinBindingController::class,
     ];
 
-    foreach ($jambServices as $prefix => $controller) {
-        Route::prefix("services/{$prefix}")->group(function () use ($controller) {
-            Route::get('/{id}/download', [$controller, 'download']);
+    Route::middleware('auth:api')->group(function () use ($jambServices) {
 
-            // User routes
-            Route::post('/', [$controller, 'store']);                    // Create request
-            Route::get('/my', [$controller, 'my']);                        // User's own requests
+        foreach ($jambServices as $prefix => $controller) {
 
-            // Admin routes
-            Route::middleware('role:administrator')->group(function () use ($controller) {
-                Route::get('/pending', [$controller, 'pending']);
-                Route::get('/my-pending-job', [$controller, 'myJobs']);
-                Route::get('/administrator', [$controller, 'processedByAdmin']);
-                Route::post('/{id}/take', [$controller, 'take']);
-                Route::post('/{id}/complete', [$controller, 'complete']);
+            Route::prefix("services/{$prefix}")->group(function () use ($controller, $prefix) {
+
+                // ✅ DOWNLOAD (AUTH + POLICY)
+                Route::get('/{id}/download', [$controller, 'download'])
+                    ->name("services.{$prefix}.download");
+
+                // ================= USER =================
+                Route::post('/', [$controller, 'store']);
+                Route::get('/my', [$controller, 'my']);
+
+                // ================= ADMIN =================
+                Route::middleware('role:administrator')->group(function () use ($controller) {
+                    Route::get('/pending', [$controller, 'pending']);
+                    Route::get('/my-pending-job', [$controller, 'myJobs']);
+                    Route::get('/administrator', [$controller, 'processedByAdmin']);
+                    Route::post('/{id}/take', [$controller, 'take']);
+                    Route::post('/{id}/complete', [$controller, 'complete']);
+                });
+
+                // ================= SUPERADMIN =================
+                Route::middleware('role:superadmin')->group(function () use ($controller) {
+                    Route::post('/{id}/approve', [$controller, 'approve']);
+                    Route::post('/{id}/reject', [$controller, 'reject']);
+                    Route::get('/all', [$controller, 'all']);
+                });
             });
+        }
+    });
 
-            // Superadmin routes
-            Route::middleware(['role:superadmin'])->group(function () use ($controller) {
-                Route::post('/{id}/approve', [$controller, 'approve']);
-                Route::post('/{id}/reject', [$controller, 'reject']);
-                Route::get('/all', [$controller, 'all']);
-            });
-        });
-    }
 
     /* |--------------------------------------------------------------------------
      | Dashboards

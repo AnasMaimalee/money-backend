@@ -40,36 +40,18 @@ class JambAdmissionLetterController extends Controller
     {
         $admin = auth()->user();
 
-        if (! $admin->hasRole('administrator')) {
-            abort(403, 'Only administrators can view processed jobs');
-        }
+        abort_if(! $admin->hasRole('administrator'), 403);
 
         $jobs = JambAdmissionLetterRequest::with([
             'user',
             'service',
-            'completedBy.roles',
+            'completedBy',
         ])
             ->where('completed_by', $admin->id)
-            ->orderByDesc('updated_at')
+            ->latest()
             ->get();
 
-        return response()->json([
-            'message' => 'Jobs processed by you',
-            'data' => $jobs->map(fn ($job) => [
-                'id' => $job->id,
-                'status' => $job->status,
-                'service' => $job->service->name,
-                'user' => [
-                    'name' => $job->user->name,
-                ],
-                'payment' => [
-                    'is_paid' => $job->is_paid,
-                ],
-                'can_download' => (bool) $job->result_file,
-                'processed_at' => $job->updated_at,
-            ]),
-        ]);
-
+        return JambAdmissionLetterRequestResource::collection($jobs);
     }
 
     // User submits request
@@ -145,14 +127,27 @@ class JambAdmissionLetterController extends Controller
         $path = $request->file('file')
             ->store('jamb-admission-letters', 'public');
 
-        return response()->json(
-            $this->service->complete(
-                $admissionRequest,
-                $path,
-                auth()->user()
-            )
-        );
+        $job = $this->service->complete($admissionRequest, $path, auth()->user());
+
+        return response()->json([
+            'message' => 'Job completed and awaiting superadmin approval',
+            'data' => [
+                'id' => $job->id,
+                'status' => $job->status,
+                'result_file' => $job->result_file,
+                'result_file_url' => route('services.jamb-admission-letter.download', $job->id),
+                'user' => [
+                    'name' => $job->user->name,
+                    'email' => $job->user->email,
+                ],
+                'service' => $job->service->name,
+                'completed_by' => $job->completedBy->name,
+                'created_at' => $job->created_at->toDateTimeString(),
+            ]
+        ]);
     }
+
+
 
     /**
      * ======================
