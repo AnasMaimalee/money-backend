@@ -47,6 +47,9 @@ class User extends Authenticatable implements JWTSubject
         'state',
         'password',
         'role',
+        'google2fa_secret',
+        'google2fa_enabled',
+        'google2fa_recovery_codes',
     ];
 
     /**

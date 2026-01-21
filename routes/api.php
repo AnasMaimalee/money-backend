@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\CBT\ExamResultController;
 use App\Http\Controllers\Api\Service\JambPinBinding\JambPinBindingController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Auth\MeController;
+use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\Wallet\WalletController;
 use App\Http\Controllers\Api\Wallet\WalletHistoryController;
 use App\Http\Controllers\Api\Wallet\PaymentController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\Api\CBT\LeaderboardController;
 use App\Http\Controllers\Api\CBT\SuperAdmin\AdminCbtController;
 use App\Http\Controllers\Api\CBT\SuperAdmin\CbtSettingController;
 use App\Http\Controllers\Api\CBT\SuperAdmin\LiveCbtController;
+
 /* |--------------------------------------------------------------------------
  | Public Auth Routes
  |-------------------------------------------------------------------------- */
@@ -55,12 +57,17 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [MeController::class, 'register']);
     Route::post('/login', [MeController::class, 'login'])
         ->middleware('throttle:5,1');
+
+         Route::middleware('auth:api')->group(function () {
+            Route::post('/2fa/setup', [TwoFactorController::class, 'setup']);
+            Route::post('/2fa/confirm', [TwoFactorController::class, 'confirm']);
+    });
 });
 
 // Password Reset
 Route::post('forgot-password', [PasswordResetController::class, 'forgot']);
 Route::post('reset-password', [PasswordResetController::class, 'reset']);
-
+Route::middleware('auth:api')->get('/me', [MeController::class, 'me']);
 Route::middleware('auth:api')->post('/update-password', [MeController::class, 'updatePassword']);
 Route::middleware('auth:api')->post('logout', [MeController::class, 'logout']);
 

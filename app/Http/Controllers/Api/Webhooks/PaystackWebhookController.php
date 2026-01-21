@@ -15,15 +15,10 @@ class PaystackWebhookController extends Controller
         // 🚨 STEP 1: CRITICAL - Get UNMODIFIED raw body BEFORE Laravel touches it
         $rawBody = file_get_contents('php://input');
 
-        // 🚨 STEP 2: Log raw body for debugging (REMOVE IN PRODUCTION)
-        Log::debug('🔍 RAW PAYSTACK BODY', ['body' => $rawBody]);
 
         // 🚨 STEP 3: Get signature
         $signature = $request->header('x-paystack-signature');
-        Log::debug('🔍 PAYSTACK HEADERS', [
-            'signature' => $signature,
-            'secret' => substr(config('services.paystack.secret_key'), 0, 10) . '...'
-        ]);
+      
 
         if (!$signature) {
             return response()->json(['status' => 'missing_signature'], Response::HTTP_UNAUTHORIZED);
@@ -37,12 +32,6 @@ class PaystackWebhookController extends Controller
         }
 
         $computedSignature = hash_hmac('sha512', $rawBody, $secret);
-
-        Log::debug('🔍 SIGNATURE CHECK', [
-            'received' => substr($signature, 0, 32) . '...',
-            'computed' => substr($computedSignature, 0, 32) . '...',
-            'match' => hash_equals($computedSignature, $signature)
-        ]);
 
         if (!hash_equals($computedSignature, $signature)) {
             Log::error('❌ INVALID PAYSTACK SIGNATURE', [
