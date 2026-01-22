@@ -7,7 +7,7 @@ return [
 
     'allowed_origins' => [
         'http://localhost:3000',             // local dev
-        'https://nor-slots-starsmerchant-carb.trycloudflare.com',
+        'https://money-frontend-k1kgea8xd-anas-maimalees-projects.vercel.app',
         'http://172.24.24.69:3000'
     ],
 
