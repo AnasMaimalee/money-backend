@@ -35,4 +35,13 @@ class CbtSettingController extends Controller
             'data' => $this->service->update($request->validated()),
         ]);
     }
+
+    public function getExamFee()
+    {
+        $examFee = CbtSetting::first();
+        return response([
+            'exam_fee' => $examFee,
+            'message' => 'Exam Fee Successfully Fetched',
+        ]);
+    }
 }

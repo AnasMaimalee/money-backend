@@ -35,10 +35,13 @@ class ExamController extends Controller
         }
 
         $examFee = (float) $cbtSetting->exam_fee;
-
+        return response([
+            'exam_fee' => $examFee
+        ]);
     }
 
-   
+    
+
 
 
     /* =====================================================
@@ -47,6 +50,9 @@ class ExamController extends Controller
     public function start(Request $request)
     {
 
+        $cbtSetting = $this->cbtSettingRepository->get(); 
+        $examFee = (float) $cbtSetting->exam_fee;
+        
         $request->validate([
             'subjects'   => 'required|array|size:' . config('cbt.subjects_count'),
             'subjects.*' => 'exists:subjects,id',
