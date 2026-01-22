@@ -398,8 +398,7 @@ Route::middleware('auth:api')->prefix('cbt')->group(function () {
         Route::get('/exam/{exam}/meta', [ExamController::class, 'meta']);
         Route::get('/exam/resume', [ExamController::class, 'resume']);
         Route::get('/exam/time', [ExamController::class, 'time']);
-
-        Route::post('/exam/{eam}/submit', [ExamController::class, 'submit']);
+        Route::post('/exam/{exam}/submit', [ExamController::class, 'submit']);
         Route::post('/exam/{exam}/auto-submit', [ExamController::class, 'autoSubmitExam']);
 
         // ---------------- ANSWERS ----------------
@@ -410,6 +409,7 @@ Route::middleware('auth:api')->prefix('cbt')->group(function () {
         Route::get('/results/{exam}', [ResultController::class, 'show']);
         Route::get('/results/{exam}/summary', [ResultController::class, 'summary']);
         Route::get('/results/{exam}/pdf', [ResultController::class, 'downloadResult']);
+        Route::get('/results/{exam}/show-result', [ResultController::class, 'showResult']);
         Route::post('/exam/{exam}/refund', [ExamController::class, 'refundExamFee']);
 
         // ---------------- USER LEADERBOARD ----------------

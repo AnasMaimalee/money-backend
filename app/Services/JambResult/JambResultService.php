@@ -66,6 +66,7 @@ class JambResultService
                 'registration_number' => $data['registration_number'] ?? null,
                 'customer_price'      => $service->customer_price,
                 'admin_payout'        => $service->admin_payout,
+                'platform_profit'     => $service->customer_price - $service->admin_payout,
                 'status'              => 'pending',
                 'is_paid'             => false,
             ]);

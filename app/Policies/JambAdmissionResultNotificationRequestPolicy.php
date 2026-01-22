@@ -3,15 +3,15 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\JambAdmissionLetterRequest;
+use App\Models\JambAdmissionResultNotificationRequest;
 use Illuminate\Auth\Access\Response;
 
-class JambAdmissionLetterRequestPolicy
+class JambAdmissionResultNotificationRequestPolicy
 {
     /**
      * View Result file
      */
-    public function view(User $user, JambAdmissionLetterRequest $job): bool
+    public function view(User $user, JambAdmissionResultNotificationRequest $job): bool
     {
         if ($user->hasRole('superadmin')) {
             return true;
@@ -28,7 +28,7 @@ class JambAdmissionLetterRequestPolicy
     /**
      * Download result file
      */
-    public function download(User $user, JambAdmissionLetterRequest $job): Response
+    public function download(User $user, JambAdmissionResultNotificationRequest $job): Response
     {
         // ✅ Superadmin: Full access
         if ($user->hasRole('superadmin')) {
@@ -53,7 +53,7 @@ class JambAdmissionLetterRequestPolicy
     /**
      * Allow Administrator to take Jon
      */
-    public function take(User $user, JambAdmissionLetterRequest $job): bool
+    public function take(User $user, JambAdmissionResultNotificationRequest $job): bool
     {
         return $user->hasRole('administrator')
             && $job->status === 'pending';

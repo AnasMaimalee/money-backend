@@ -215,7 +215,5 @@ class JambAdmissionLetterController extends Controller
                 'Content-Type' => $mime,
             ]
         );
-
-
     }
 }

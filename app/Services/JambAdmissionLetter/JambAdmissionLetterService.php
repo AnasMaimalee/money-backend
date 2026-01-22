@@ -37,7 +37,6 @@ class JambAdmissionLetterService
             ->whereRaw('LOWER(name) = ?', [strtolower('Jamb Admission Letter')])
             ->firstOrFail();
 
-        // Balance check
         if ($user->wallet->balance < $service->customer_price) {
             abort(422, 'Insufficient wallet balance');
         }

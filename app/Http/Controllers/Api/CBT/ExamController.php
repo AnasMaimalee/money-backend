@@ -52,7 +52,7 @@ class ExamController extends Controller
 
         $cbtSetting = $this->cbtSettingRepository->get(); 
         $examFee = (float) $cbtSetting->exam_fee;
-        
+
         $request->validate([
             'subjects'   => 'required|array|size:' . config('cbt.subjects_count'),
             'subjects.*' => 'exists:subjects,id',
@@ -327,4 +327,6 @@ class ExamController extends Controller
             )
         ]);
     }
+
+    
 }

@@ -10,16 +10,19 @@ class JambPinBindingRequestResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-
             'id' => $this->id,
             'status' => $this->status,
-            'is_paid' => $this->is_paid,
-            'profile_code' => $this->profile_code,
             'email' => $this->email,
+            'profile_code' => $this->profile_code,
+            'registration_number' => $this->registration_number,
 
-            'result_file' => $this->result_file
-                ? asset('storage/' . $this->result_file)
-                : null,
+            'result_available' => ! empty($this->result_file),
+
+            'user' => [
+                'name' => $this->user?->name,
+            ],
+
+            'service' => $this->service?->name,
 
             'created_at' => $this->created_at->toDateTimeString(),
         ];

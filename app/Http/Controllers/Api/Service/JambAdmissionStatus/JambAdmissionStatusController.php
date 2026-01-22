@@ -6,10 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\JambAdmissionStatusRequestResource;
 use App\Models\JambAdmissionStatusRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use App\Services\JambAdmissionStatus\JambAdmissionStatusService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class JambAdmissionStatusController extends Controller
 {
+    use AuthorizesRequests;
+
     public function __construct(
         protected JambAdmissionStatusService $service
     ) {}
@@ -197,5 +201,39 @@ class JambAdmissionStatusController extends Controller
         return response()->json(
             $this->service->all()
         );
+    }
+
+    public function download(string $id)
+    {
+        $job = JambAdmissionStatusRequest::findOrFail($id);
+        $this->authorize('download', $job);
+
+        abort_if(
+            ! $job->result_file || ! Storage::disk('public')->exists($job->result_file),
+            404,
+            'File not available'
+        );
+
+        // 📂 Full file path
+        $path = $job->result_file;
+
+        // 📎 Extension (pdf, png, jpg, jpeg)
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+
+        // 🧠 Detect mime type properly
+        $mime = Storage::disk('public')->mimeType($path);
+
+        // 🏷️ Clean filename
+        $filename = "JAMB_Admission_Status_{$job->id}.{$extension}";
+
+        return response()->download(
+            Storage::disk('public')->path($path),
+            $filename,
+            [
+                'Content-Type' => $mime,
+            ]
+        );
+
+
     }
 }

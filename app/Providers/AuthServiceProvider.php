@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 use App\Policies\JambAdmissionLetterRequestPolicy;
+use App\Policies\JambAdmissionStatusRequestPolicy;
+use App\Policies\JambAdmissionResultNotificationRequestPolicy;
+use App\Policies\JambUploadStatusRequestPolicy;
+use App\Policies\JambResultRequestPolicy;
+use App\Policies\JambPinBindingRequestPloicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -21,6 +26,11 @@ class AuthServiceProvider extends ServiceProvider
     protected $policies = [
         Exam::class => ExamPolicy::class,
         JambAdmissionLetterRequest::class => JambAdmissionLetterRequestPolicy::class,
+        JambAdmissionStatusRequest::class => JambAdmissionStatusRequestPolicy::class,
+        JambAdmissionResultNotificationRequest::class => JambAdmissionResultNotificationRequestPolicy::class,
+        JambUploadStatusRequest::class => JambUpoladStatusRequestPolicy::class,
+        JambResultRequest::class => JambResultRequestPolicy::class,
+        JambPinBindingRequest::class => JambPinBindingRequestPolicy::class,
     
     ];
 

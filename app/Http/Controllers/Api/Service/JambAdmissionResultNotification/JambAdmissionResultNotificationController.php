@@ -5,13 +5,18 @@ namespace App\Http\Controllers\Api\Service\JambAdmissionResultNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\JambAdmissionLetterRequestResource;
 use App\Http\Resources\JambAdmissionResultNotificationRequestResource;
-use App\Models\JambAdmissionLetterRequest;
 use App\Models\JambAdmissionResultNotificationRequest;
 use Illuminate\Http\Request;
+use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Services\JambAdmissionResultNotification\JambAdmissionResultNotificationService;
 
 class JambAdmissionResultNotificationController extends Controller
 {
+    use AuthorizesRequests;
+
     public function __construct(
         protected JambAdmissionResultNotificationService $service
     ) {}
@@ -195,5 +200,39 @@ class JambAdmissionResultNotificationController extends Controller
         return response()->json(
             $this->service->all()
         );
+    }
+
+    public function download(string $id)
+    {
+        $job = JambAdmissionResultNotificationRequest::findOrFail($id);
+        $this->authorize('download', $job);
+
+        abort_if(
+            ! $job->result_file || ! Storage::disk('public')->exists($job->result_file),
+            404,
+            'File not available'
+        );
+
+        // 📂 Full file path
+        $path = $job->result_file;
+
+        // 📎 Extension (pdf, png, jpg, jpeg)
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+
+        // 🧠 Detect mime type properly
+        $mime = Storage::disk('public')->mimeType($path);
+
+        // 🏷️ Clean filename
+        $filename = "JAMB_Admission_Result_Notification_{$job->id}.{$extension}";
+
+        return response()->download(
+            Storage::disk('public')->path($path),
+            $filename,
+            [
+                'Content-Type' => $mime,
+            ]
+        );
+
+
     }
 }
