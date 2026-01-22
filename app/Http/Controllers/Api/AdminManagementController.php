@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Api;
-
+use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\Controller;
 use App\Services\AdminManagementService;
 use Illuminate\Http\JsonResponse;
@@ -91,5 +91,13 @@ class AdminManagementController extends Controller
         $result = $this->service->restoreAdministrator($id);
 
         return response()->json($result);
+    }
+
+    public function banks()
+    {
+        $response = Http::withToken(config('services.paystack.secret_key'))
+            ->get('https://api.paystack.co/bank');
+
+        return response()->json($response->json()['data']);
     }
 }

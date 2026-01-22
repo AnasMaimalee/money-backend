@@ -20,9 +20,8 @@ class ProfileService
     }
 
     // Create or update bank account
-    public function updateBank(User $user, array $data)
+   public function updateBank(User $user, array $data)
     {
-        // Check if user already has a bank account
         $account = $user->bankAccount;
 
         if ($account) {
@@ -33,9 +32,10 @@ class ProfileService
 
         return [
             'message' => 'Bank account saved successfully',
-            'data' => "Correct"
+            'data' => $account
         ];
     }
+
 
     // Update password
     public function updatePassword(User $user, string $current, string $new)

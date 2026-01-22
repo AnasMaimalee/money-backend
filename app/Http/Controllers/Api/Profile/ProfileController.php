@@ -13,9 +13,14 @@ class ProfileController extends Controller
     // Get user profile + bank account
     public function show()
     {
+        $user = auth()->user();
+
+        $profile = $this->service->profile($user);
+
         return response()->json([
             'success' => true,
-            'message' => 'Profile data fetched successfully'
+            'message' => 'Profile data fetched successfully',
+            'data' => $profile
         ]);
     }
 
@@ -27,15 +32,18 @@ class ProfileController extends Controller
             'account_number' => 'required|string|min:10',
         ]);
 
-        $this->service->updateBank(auth()->user(), $request->only([
+        // POST will either create or update
+        $account = $this->service->updateBank(auth()->user(), $request->only([
             'bank_name', 'account_name', 'account_number'
         ]));
 
         return response()->json([
             'success' => true,
-            'message' => 'Bank account updated successfully'
+            'message' => 'Bank account saved successfully',
+            'data' => $account['data']
         ]);
     }
+
 
     public function updatePassword(Request $request)
     {

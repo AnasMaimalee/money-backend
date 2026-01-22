@@ -98,9 +98,18 @@ Route::middleware('auth:api')->post('logout', [MeController::class, 'logout']);
 
 Route::middleware('auth:api')->prefix('profile')->group(function () {
     Route::get('/', [ProfileController::class, 'show']);
-    Route::post('/bank', [ProfileController::class, 'updateBank']);
     Route::post('/password', [ProfileController::class, 'updatePassword']);
+    Route::middleware(['auth:sanctum'])->group(function () {
+    
 });
+
+});
+
+Route::middleware('auth:api')->prefix('/administrator')->group(function () {
+    Route::post('/payout/bank', [ProfileController::class, 'updateBank']); // create
+    Route::put('/payout/bank', [ProfileController::class, 'updateBank']);  // update
+});
+
 
 
 // Email Verification
@@ -140,6 +149,7 @@ Route::middleware('auth:api')->group(function () {
      |-------------------------------------------------------------------------- */
     Route::get('/me', [MeController::class, 'me'])->middleware('role:administrator,superadmin,user');
     Route::post('/me/create-administrator', [MeController::class, 'createAdministrator']);
+    Route::get('/banks', [AdminManagementController::class, 'banks']);
 
     /* |--------------------------------------------------------------------------
      | Administrator & User Management (Superadmin only)
