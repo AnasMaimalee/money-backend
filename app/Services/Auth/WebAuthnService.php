@@ -26,24 +26,20 @@ class WebAuthnService
             throw new \RuntimeException('Invalid FRONTEND_URL');
         }
 
-        // ✅ localhost allowed
+        // ✅ Localhost allowed
         if (in_array($host, ['localhost', '127.0.0.1'])) {
             return $host;
         }
 
-        // ✅ Cloudflare tunnel → FULL domain
+        // ✅ Cloudflare tunnels (must be full domain)
         if (str_ends_with($host, '.trycloudflare.com')) {
             return $host;
         }
 
-        // ✅ Production → base domain only
-        $parts = explode('.', $host);
-        if (count($parts) >= 2) {
-            return implode('.', array_slice($parts, -2));
-        }
-
+        // ✅ Vercel / Netlify / any hosted platform → FULL hostname
         return $host;
     }
+
 
     /**
      * Registration options
