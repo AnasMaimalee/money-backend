@@ -377,7 +377,7 @@ public function login(Request $request)
                     'icon' => 'SettingOutlined',
                 ],
                 [
-                    'label' => 'JAMB Result',
+                    'label' => 'JAMB Original Result',
                     'route' => '/user/services/jamb-result',
                     'icon' => 'AppstoreOutlined',
                 ],
@@ -422,12 +422,12 @@ public function login(Request $request)
                 ['label' => 'Wallet', 'route' => '/administrator/wallet', 'icon' => 'WalletOutlined'],
                 ['label' => 'Payout', 'route' => '/administrator/payout', 'icon' => 'BankOutlined'],
                 ['label' => 'Price Services', 'route' => '/administrator/price-services', 'icon' => 'SettingOutlined'],
-                ['label' => 'JAMB Result', 'route' => '/administrator/services/jamb-result', 'icon' => 'AppstoreOutlined'],
+                ['label' => 'JAMB Original Result', 'route' => '/administrator/services/jamb-result', 'icon' => 'AppstoreOutlined'],
                 ['label' => 'JAMB Admission Letter', 'route' => '/administrator/services/jamb-admission-letter', 'icon' => 'FileTextOutlined'],
                 ['label' => 'JAMB Olevel Status', 'route' => '/administrator/services/jamb-olevel-status', 'icon' => 'ProfileOutlined'],
                 ['label' => 'Admission Status Checking', 'route' => '/administrator/services/jamb-check-admission', 'icon' => 'CheckCircleOutlined'],
-                ['label' => 'JAMB Result Notification', 'route' => '/administrator/services/jamb-result-notification', 'icon' => 'BellOutlined'],
-                ['label' => 'JAMB PIN Binding', 'route' => '/administrator/services/jamb-pin-binding', 'icon' => 'BellOutlined',],
+                ['label' => 'JAMB Result Notification', 'route' => '/administrator/services/jamb-result-notification', 'icon' => 'NotificationOutlined'],
+                ['label' => 'JAMB PIN Binding', 'route' => '/administrator/services/jamb-pin-binding', 'icon' => 'LinkOutlined',],
                 ['label' => 'Setting', 'route' => '/administrator/setting', 'icon' => 'SettingOutlined'],
             ],
             'superadmin' => [
@@ -520,12 +520,12 @@ public function login(Request $request)
                 [
                     'label' => 'JAMB Result Notification',
                     'route' => '/superadmin/services/jamb-result-notification',
-                    'icon' => 'BellOutlined',
+                    'icon' => 'NotificationOutlined',
                 ],
                 [
                     'label' => 'JAMB PIN Binding',
                     'route' => '/superadmin/services/jamb-pin-binding',
-                    'icon' => 'BellOutlined',
+                    'icon' => 'LinkOutlined',
                 ],
                 [
                     'label' => 'Settings',

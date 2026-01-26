@@ -1,7 +1,9 @@
 <?php
 
 namespace App\Services\JambAdmissionLetter;
-
+use App\Events\JambJobSubmitted;
+use App\Events\JambJobTaken;
+use App\Events\JambJobCompleted;
 use App\Mail\JambAdmissionLetterCompletedMail;
 use App\Mail\JambAdmissionLetterRejectedMail;
 use App\Mail\WalletDebited;
@@ -13,6 +15,7 @@ use Illuminate\Support\Str;
 use App\Repositories\JambAdmissionLetter\JambAdmissionLetterRepository;
 use App\Services\WalletService;
 use App\Models\JambAdmissionLetterRequest;
+
 class JambAdmissionLetterService
 {
     public function __construct(
@@ -30,39 +33,35 @@ class JambAdmissionLetterService
     {
         return $this->repo->userRequests($user->id);
     }
-
     public function submit(User $user, array $data)
     {
+        // 1️⃣ Fetch service
         $service = Service::where('active', true)
             ->whereRaw('LOWER(name) = ?', [strtolower('Jamb Admission Letter')])
             ->firstOrFail();
 
+        // 2️⃣ Check wallet balance
         if ($user->wallet->balance < $service->customer_price) {
             abort(422, 'Insufficient wallet balance');
         }
 
-        $superAdmin = User::role('superadmin')->first();
-        if (!$superAdmin) {
-            abort(500, 'Super admin not configured');
-        }
+        // 3️⃣ Get superadmin
+        $superAdmin = User::role('superadmin')->firstOrFail();
 
         $groupReference = 'jamb_admission_' . Str::uuid();
 
-        // Capture transaction for email
-        $transactions = null;
-
-        $createdRequest = DB::transaction(function () use ($user, $data, $service, $superAdmin, $groupReference, &$transactions) {
-
-            // ✅ SINGLE SERVICE PAYMENT
-            $transactions = $this->walletService->servicePayment(
+        // 4️⃣ Create job inside transaction
+        $job = DB::transaction(function () use ($user, $data, $service, $superAdmin, $groupReference) {
+            // Debit user and credit platform
+            $debitTransaction = $this->walletService->servicePayment(
                 customer: $user,
                 platform: $superAdmin,
                 amount: $service->customer_price,
                 description: 'Purchase: JAMB Admission Letter',
                 groupReference: $groupReference
-            );
+            )['debit_transaction'];
 
-            // Create the request
+            // Create job
             return $this->repo->create([
                 'user_id'             => $user->id,
                 'service_id'          => $service->id,
@@ -78,23 +77,28 @@ class JambAdmissionLetterService
             ]);
         });
 
-        // Send debit confirmation email to user
-        if ($transactions && $transactions['debit_transaction']) {
-            Mail::to($user->email)->send(
-                new WalletDebited(
-                    user: $user,
-                    amount: $service->customer_price,
-                    balance: $transactions['debit_transaction']->balance_after,
-                    reason: 'Purchase: JAMB Admission Letter'
-                )
-            );
-        }
+        // 5️⃣ Send debit confirmation email
+        Mail::to($user->email)->send(
+            new WalletDebited(
+                user: $user,
+                amount: $service->customer_price,
+                balance: $user->wallet->balance, // current balance
+                reason: 'Purchase: JAMB Admission Letter'
+            )
+        );
+
+        // 6️⃣ Fire event
+        broadcast(new JambJobSubmitted($job))->toOthers();
+
 
         return response()->json([
             'success' => true,
             'message' => 'Your work has been successfully submitted.',
+            'job' => $job,
         ], 201);
     }
+
+
 
 
     /**
@@ -128,6 +132,7 @@ class JambAdmissionLetterService
             'status'   => 'processing',
             'taken_by' => $admin->id,
         ]);
+        event(new JambJobTaken($job));
 
         return $job;
     }
@@ -161,7 +166,8 @@ class JambAdmissionLetterService
             Mail::to($job->email)->send(
                 new JambAdmissionLetterCompletedMail($job)
             );
-
+             event(new JambJobCompleted($job));
+             
             return $job; // ✅ RETURN MODEL
         });
     }

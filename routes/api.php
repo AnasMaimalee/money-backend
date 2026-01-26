@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\AdminManagementController;
 use App\Http\Controllers\Api\UserManagementController;
 use App\Http\Controllers\Api\Auth\LoginAuditController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
+use App\Http\Controllers\Api\Auth\PasswordController;
 use App\Http\Controllers\Api\Auth\EmailVerificationController;
 use App\Http\Controllers\Api\Profile\ProfileController;
 use App\Http\Controllers\Api\Feedback\FeedbackController;
@@ -50,6 +51,14 @@ use App\Http\Controllers\Api\CBT\LeaderboardController;
 use App\Http\Controllers\Api\CBT\SuperAdmin\AdminCbtController;
 use App\Http\Controllers\Api\CBT\SuperAdmin\CbtSettingController;
 use App\Http\Controllers\Api\CBT\SuperAdmin\LiveCbtController;
+
+
+
+
+use Illuminate\Support\Facades\Broadcast;
+Broadcast::routes();
+require __DIR__.'/channels.php';
+
 
 /* |--------------------------------------------------------------------------
  | Public Auth Routes

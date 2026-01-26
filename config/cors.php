@@ -1,26 +1,29 @@
 <?php
-return [
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+return [
+    'paths' => [
+        'api/*',
+        'broadcasting/auth',
+    ],
 
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'http://localhost:3000',             // local dev
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
         'https://money-frontend-swart.vercel.app',
-        'http://172.24.24.69:3000'
+        'https://engaged-launch-locale-social.trycloudflare.com',
     ],
 
     'allowed_origins_patterns' => [
-        '/^https:\/\/.*\.loca\.lt$/',
+        '/^https:\/\/.*\.trycloudflare\.com$/',
     ],
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => ['Authorization'],
+    'exposed_headers' => [],
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
-
+    'supports_credentials' => true,
 ];

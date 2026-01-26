@@ -15,8 +15,9 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('name')->unique();
             $table->text('description')->nullable();
-            $table->decimal('customer_price', 10, 2); // what user pays
-            $table->decimal('admin_payout', 10, 2);   // what admin gets
+            $table->text('slug')->nulaable();
+            $table->decimal('customer_price', 10, 2); 
+            $table->decimal('admin_payout', 10, 2);
             $table->boolean('active')->default(true);
             $table->timestamps();
         });
