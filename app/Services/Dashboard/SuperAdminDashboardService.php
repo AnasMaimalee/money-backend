@@ -13,7 +13,8 @@ class SuperAdminDashboardService
         'jamb_admission_letter_requests',
         'jamb_upload_status_requests',
         'jamb_admission_status_requests',
-        'jamb_admission_result_notification_requests'
+        'jamb_admission_result_notification_requests',
+        'jamb_pin_binding_requests'
     ];
 
     public function summary(): array
@@ -180,7 +181,8 @@ class SuperAdminDashboardService
             'jamb_admission_letter_requests' => 'Admission Letter',
             'jamb_upload_status_requests' => 'O\'Level Upload',
             'jamb_admission_status_requests' => 'Admission Status',
-            'jamb_admission_result_notification_requests' => 'Result Notification'
+            'jamb_admission_result_notification_requests' => 'Result Notification',
+            'jamb_pin_binding_requests' => 'PIN Binding'
         ];
 
         return $map[$table] ?? ucwords(str_replace('_requests', '', str_replace('jamb_', '', $table)));
